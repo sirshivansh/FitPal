@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Dumbbell Central Steel Bar -->
+    <path
+        android:fillColor="#90A4AE"
+        android:pathData="M5,11h14v2H5z"/>
+    <!-- Left Inner Weight Plate -->
+    <path
+        android:fillColor="#37474F"
+        android:pathData="M5,7h2v10H5z"/>
+    <!-- Left Outer Weight Plate -->
+    <path
+        android:fillColor="#263238"
+        android:pathData="M2,9h3v6H2z"/>
+    <!-- Right Inner Weight Plate -->
+    <path
+        android:fillColor="#37474F"
+        android:pathData="M17,7h2v10h-2z"/>
+    <!-- Right Outer Weight Plate -->
+    <path
+        android:fillColor="#263238"
+        android:pathData="M19,9h3v6h-3z"/>
+</vector>
