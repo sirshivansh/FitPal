@@ -17,7 +17,8 @@ import java.util.Locale
 class ProgressViewModel(
     private val progressRepository: ProgressRepository,
     private val foodRepository: FoodRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val exerciseRepository: com.example.data.repository.ExerciseRepository
 ) : ViewModel() {
 
     val weightLogs: StateFlow<List<WeightLog>> = progressRepository.allWeightLogs
@@ -41,6 +42,20 @@ class ProgressViewModel(
         val flows = days.map { date -> foodRepository.getFoodEntriesForDate(date) }
         
         // Combine flows of individual days into a single flow of combined list
+        combine(flows) { arrays ->
+            arrays.flatMap { it.toList() }
+        }.collect { emit(it) }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    // Collect past 7 days of exercise entries for comparison chart
+    val recentExerciseEntries: StateFlow<List<com.example.data.local.entity.ExerciseEntry>> = flow {
+        val days = DateUtils.getDaysRange(7)
+        val flows = days.map { date -> exerciseRepository.getExerciseEntriesForDate(date) }
+        
         combine(flows) { arrays ->
             arrays.flatMap { it.toList() }
         }.collect { emit(it) }

@@ -9,8 +9,10 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 private val DarkColorScheme =
   darkColorScheme(
@@ -48,9 +50,11 @@ private val LightColorScheme =
     onTertiary = SleekText
   )
 
+var isDarkThemeGlobal by mutableStateOf<Boolean?>(null)
+
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
+  darkTheme: Boolean = isDarkThemeGlobal ?: isSystemInDarkTheme(),
   // Set to false by default so our "Sleek Interface" theme is active and visible!
   dynamicColor: Boolean = false,
   content: @Composable () -> Unit,

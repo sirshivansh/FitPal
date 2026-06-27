@@ -113,3 +113,20 @@ data class CustomExercise(
     val category: String,
     val metValue: Float
 )
+
+@Entity(tableName = "habit")
+data class Habit(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val description: String,
+    val colorHex: String, // e.g. "#9C27B0"
+    val iconName: String, // e.g. "meditation", "side_hustle", "drums", "running", "coffee"
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "habit_completion")
+data class HabitCompletion(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val habitId: Long,
+    val date: String // YYYY-MM-DD
+)

@@ -26,6 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
 import com.example.data.local.entity.WeightLog
 import com.example.ui.components.*
 import com.example.util.DateUtils
@@ -40,6 +42,7 @@ fun ProgressScreen(
     val weightLogs by viewModel.weightLogs.collectAsState()
     val profile by viewModel.userProfile.collectAsState()
     val recentFood by viewModel.recentFoodEntries.collectAsState()
+    val recentExercise by viewModel.recentExerciseEntries.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -234,6 +237,56 @@ fun ProgressScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+                }
+            }
+
+            // WEEKLY ACTIVITY & INTAKE COMPARISON CHART CARD
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Weekly Activity & Intake",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Comparison of calories eaten vs burned over the past 7 days",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    WeeklyCalorieActivityBarChart(
+                        foodEntries = recentFood,
+                        exerciseEntries = recentExercise,
+                        modifier = Modifier
+                            .height(200.dp)
+                            .fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Legend
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Calories Eaten", style = MaterialTheme.typography.labelMedium)
+                        }
+                        Spacer(modifier = Modifier.width(24.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.secondary))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Active Calories Burned", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -486,5 +539,136 @@ fun MacroDoughnutChart(
             style = stroke,
             size = Size(canvasSize, canvasSize)
         )
+    }
+}
+
+@Composable
+fun WeeklyCalorieActivityBarChart(
+    foodEntries: List<com.example.data.local.entity.FoodEntry>,
+    exerciseEntries: List<com.example.data.local.entity.ExerciseEntry>,
+    modifier: Modifier = Modifier
+) {
+    val days = remember { DateUtils.getDaysRange(7) }
+
+    val dataPoints = remember(foodEntries, exerciseEntries, days) {
+        days.map { day ->
+            val foodSum = foodEntries.filter { it.date == day }.sumOf { it.caloriesConsumed.toDouble() }.toInt()
+            val exerciseSum = exerciseEntries.filter { it.date == day }.sumOf { it.caloriesBurned.toDouble() }.toInt()
+            val shortLabel = DateUtils.formatDateForDisplayShort(day)
+            Triple(shortLabel, foodSum, exerciseSum)
+        }
+    }
+
+    val maxCalVal = remember(dataPoints) {
+        val maxFood = dataPoints.maxOfOrNull { it.second } ?: 0
+        val maxExercise = dataPoints.maxOfOrNull { it.third } ?: 0
+        val rawMax = maxOf(maxFood, maxExercise).toFloat()
+        if (rawMax > 100f) rawMax * 1.15f else 1500f
+    }
+
+    val foodColor = MaterialTheme.colorScheme.primary
+    val exerciseColor = MaterialTheme.colorScheme.secondary
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Canvas(modifier = modifier) {
+        val width = size.width
+        val height = size.height
+
+        val paddingLeft = 70f
+        val paddingRight = 20f
+        val paddingTop = 40f
+        val paddingBottom = 60f
+
+        val chartWidth = width - paddingLeft - paddingRight
+        val chartHeight = height - paddingTop - paddingBottom
+
+        // Draw horizontal grid lines and Y labels
+        val gridLinesCount = 3
+        val paint = android.graphics.Paint().apply {
+            color = labelColor.toArgb()
+            textSize = 9.dp.toPx()
+            textAlign = android.graphics.Paint.Align.RIGHT
+            typeface = android.graphics.Typeface.DEFAULT
+        }
+
+        for (i in 0..gridLinesCount) {
+            val ratio = i.toFloat() / gridLinesCount.toFloat()
+            val y = paddingTop + chartHeight * (1f - ratio)
+            
+            // Grid line
+            drawLine(
+                color = Color.LightGray.copy(alpha = 0.35f),
+                start = Offset(paddingLeft, y),
+                end = Offset(width - paddingRight, y),
+                strokeWidth = 1.dp.toPx()
+            )
+
+            // Y Axis Label
+            val labelVal = (ratio * maxCalVal).roundToInt()
+            drawContext.canvas.nativeCanvas.drawText(
+                "$labelVal",
+                paddingLeft - 10f,
+                y + 3.dp.toPx(),
+                paint
+            )
+        }
+
+        // Draw bars and X labels
+        val numDays = dataPoints.size
+        val groupWidth = chartWidth / numDays
+        val barWidth = groupWidth * 0.35f
+        val gap = groupWidth * 0.06f
+
+        val xPaint = android.graphics.Paint().apply {
+            color = labelColor.toArgb()
+            textSize = 9.dp.toPx()
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT
+        }
+
+        dataPoints.forEachIndexed { index, point ->
+            val label = point.first
+            val foodVal = point.second
+            val exerciseVal = point.third
+
+            // Center of group
+            val groupX = paddingLeft + index * groupWidth + groupWidth / 2f
+
+            // Food bar bounds (left side of group center)
+            val foodBarX = groupX - barWidth - gap / 2f
+            val foodBarHeight = (foodVal / maxCalVal) * chartHeight
+            val foodBarY = paddingTop + chartHeight - foodBarHeight
+
+            if (foodVal > 0) {
+                drawRoundRect(
+                    color = foodColor,
+                    topLeft = Offset(foodBarX, foodBarY),
+                    size = Size(barWidth, foodBarHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                )
+            }
+
+            // Exercise bar bounds (right side of group center)
+            val exerciseBarX = groupX + gap / 2f
+            val exerciseBarHeight = (exerciseVal / maxCalVal) * chartHeight
+            val exerciseBarY = paddingTop + chartHeight - exerciseBarHeight
+
+            if (exerciseVal > 0) {
+                drawRoundRect(
+                    color = exerciseColor,
+                    topLeft = Offset(exerciseBarX, exerciseBarY),
+                    size = Size(barWidth, exerciseBarHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                )
+            }
+
+            // X Axis Label
+            drawContext.canvas.nativeCanvas.drawText(
+                label,
+                groupX,
+                paddingTop + chartHeight + 18.dp.toPx(),
+                xPaint
+            )
+        }
     }
 }

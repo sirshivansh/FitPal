@@ -74,4 +74,32 @@ object DateUtils {
         }
         return list
     }
+
+    fun getWeekStripDays(centerDateStr: String): List<String> {
+        val list = mutableListOf<String>()
+        for (i in -3..3) {
+            list.add(addDays(centerDateStr, i))
+        }
+        return list
+    }
+
+    fun getDayOfWeekLetter(dateString: String): String {
+        return try {
+            val date = dbDateFormat.parse(dateString) ?: Date()
+            val sdf = SimpleDateFormat("E", Locale.US) // e.g. "Mon"
+            sdf.format(date).take(1).uppercase()
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    fun getDayOfMonth(dateString: String): String {
+        return try {
+            val date = dbDateFormat.parse(dateString) ?: Date()
+            val sdf = SimpleDateFormat("d", Locale.US) // e.g. "23"
+            sdf.format(date)
+        } catch (e: Exception) {
+            ""
+        }
+    }
 }

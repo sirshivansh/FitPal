@@ -74,6 +74,18 @@ interface FoodDao {
 
     @Query("DELETE FROM custom_food")
     suspend fun clearCustomFoods()
+
+    @Query("SELECT * FROM food_entry")
+    suspend fun getAllFoodEntriesSync(): List<FoodEntry>
+
+    @Query("SELECT * FROM custom_food")
+    suspend fun getAllCustomFoodsSync(): List<CustomFood>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFoodEntries(entries: List<FoodEntry>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomFoods(foods: List<CustomFood>)
 }
 
 @Dao
@@ -122,6 +134,18 @@ interface ExerciseDao {
 
     @Query("DELETE FROM custom_exercise")
     suspend fun clearCustomExercises()
+
+    @Query("SELECT * FROM exercise_entry")
+    suspend fun getAllExerciseEntriesSync(): List<ExerciseEntry>
+
+    @Query("SELECT * FROM custom_exercise")
+    suspend fun getAllCustomExercisesSync(): List<CustomExercise>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExerciseEntries(entries: List<ExerciseEntry>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomExercises(exercises: List<CustomExercise>)
 }
 
 @Dao
@@ -137,6 +161,12 @@ interface WeightLogDao {
 
     @Query("DELETE FROM weight_log")
     suspend fun clearWeightLogs()
+
+    @Query("SELECT * FROM weight_log")
+    suspend fun getAllWeightLogsSync(): List<WeightLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWeightLogs(logs: List<WeightLog>)
 }
 
 @Dao
@@ -158,6 +188,12 @@ interface WaterLogDao {
 
     @Query("DELETE FROM water_log")
     suspend fun clearWaterLogs()
+
+    @Query("SELECT * FROM water_log")
+    suspend fun getAllWaterLogsSync(): List<WaterLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWaterLogs(logs: List<WaterLog>)
 }
 
 @Dao
@@ -173,4 +209,40 @@ interface DailyActivityCalorieDao {
 
     @Query("DELETE FROM daily_activity_calorie_log")
     suspend fun clearActivityCalorieLogs()
+
+    @Query("SELECT * FROM daily_activity_calorie_log")
+    suspend fun getAllActivityCalorieLogsSync(): List<DailyActivityCalorieLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertActivityCalorieLogs(logs: List<DailyActivityCalorieLog>)
+}
+
+@Dao
+interface HabitDao {
+    @Query("SELECT * FROM habit ORDER BY timestamp ASC")
+    fun getAllHabits(): Flow<List<Habit>>
+
+    @Query("SELECT * FROM habit WHERE id = :id")
+    suspend fun getHabitById(id: Long): Habit?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHabit(habit: Habit): Long
+
+    @Delete
+    suspend fun deleteHabit(habit: Habit)
+
+    @Query("SELECT * FROM habit_completion")
+    fun getAllHabitCompletions(): Flow<List<HabitCompletion>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHabitCompletion(completion: HabitCompletion)
+
+    @Query("DELETE FROM habit_completion WHERE habitId = :habitId AND date = :date")
+    suspend fun deleteHabitCompletion(habitId: Long, date: String)
+
+    @Query("DELETE FROM habit")
+    suspend fun clearHabits()
+
+    @Query("DELETE FROM habit_completion")
+    suspend fun clearHabitCompletions()
 }

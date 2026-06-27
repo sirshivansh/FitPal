@@ -4,27 +4,33 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.util.DateUtils
 
 // Color definitions for macros as specified in core features
 val MacroProteinColor = Color(0xFF3F8EFC) // Sleek Protein Blue
@@ -188,6 +194,83 @@ fun MacroProgressBar(
 }
 
 @Composable
+fun MacroCircularIndicator(
+    label: String,
+    currentGrams: Float,
+    goalGrams: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val progress = if (goalGrams > 0) currentGrams / goalGrams.toFloat() else 0f
+    val isExcess = progress > 1f
+    val displayPercent = (progress * 100f).toInt()
+    
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 800),
+        label = "MacroCircularProgress"
+    )
+
+    Column(
+        modifier = modifier.padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(80.dp)
+        ) {
+            // Background track
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawArc(
+                    color = color.copy(alpha = 0.15f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+            
+            // Foreground active track
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawArc(
+                    color = if (isExcess) Color(0xFFE74C3C) else color,
+                    startAngle = -90f,
+                    sweepAngle = animatedProgress * 360f,
+                    useCenter = false,
+                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+            
+            // Center percentage text
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "$displayPercent%",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = if (isExcess) Color(0xFFE74C3C) else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+        
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        
+        val diff = goalGrams - currentGrams.toInt()
+        val infoText = if (diff >= 0) "${diff}g left" else "${-diff}g over"
+        val infoColor = if (isExcess) Color(0xFFE74C3C) else MaterialTheme.colorScheme.onSurfaceVariant
+        
+        Text(
+            text = infoText,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            color = infoColor
+        )
+    }
+}
+
+@Composable
 fun EmptyState(
     title: String,
     description: String,
@@ -259,3 +342,115 @@ fun ConfirmationDialog(
         }
     )
 }
+
+/**
+ * Custom Modifier for sleek, bouncy button feel.
+ * Adds interactive tactile spring scale feedback to UI elements when clicked!
+ */
+@Composable
+fun Modifier.bounceClick(onClick: () -> Unit): Modifier {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = tween(durationMillis = 100),
+        label = "BounceScale"
+    )
+
+    return this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .clickable(
+            interactionSource = interactionSource,
+            indication = ripple(bounded = true, radius = 24.dp),
+            onClick = onClick
+        )
+}
+
+/**
+ * Premium Horizontal Weekly Calendar Strip.
+ * Shows days of the week surrounding the selected date as circular/pill containers.
+ * The active day is styled with high-contrast primary color and text.
+ */
+@Composable
+fun HorizontalWeekStrip(
+    selectedDate: String,
+    onDateSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val weekDays = remember(selectedDate) {
+        DateUtils.getWeekStripDays(selectedDate)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        weekDays.forEach { dateItem ->
+            val isSelected = dateItem == selectedDate
+            val dayLetter = DateUtils.getDayOfWeekLetter(dateItem)
+            val dayNum = DateUtils.getDayOfMonth(dateItem)
+            
+            val containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            }
+            
+            val contentColor = if (isSelected) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
+
+            val scale by animateFloatAsState(
+                targetValue = if (isSelected) 1.08f else 1.0f,
+                animationSpec = tween(durationMillis = 300),
+                label = "CalendarDayScale"
+            )
+
+            Card(
+                modifier = Modifier
+                    .width(46.dp)
+                    .height(68.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .bounceClick {
+                        onDateSelected(dateItem)
+                    }
+                    .testTag("calendar_day_$dateItem"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = containerColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 0.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = dayLetter,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                        color = contentColor.copy(alpha = 0.7f),
+                        fontSize = 11.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = dayNum,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = contentColor,
+                        fontSize = 15.sp
+                    )
+                }
+            }
+        }
+    }
+}
+

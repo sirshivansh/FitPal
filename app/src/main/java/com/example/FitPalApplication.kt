@@ -17,6 +17,7 @@ class FitPalApplication : Application() {
     val userRepository by lazy { UserRepository(database.userProfileDao()) }
     val foodRepository by lazy { FoodRepository(database.foodDao()) }
     val exerciseRepository by lazy { ExerciseRepository(database.exerciseDao()) }
+    val habitRepository by lazy { HabitRepository(database.habitDao()) }
     val progressRepository by lazy {
         ProgressRepository(
             database.weightLogDao(),

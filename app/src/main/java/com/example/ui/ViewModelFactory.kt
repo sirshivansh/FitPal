@@ -51,7 +51,13 @@ class ViewModelFactory(private val application: FitPalApplication) : ViewModelPr
                 ProgressViewModel(
                     application.progressRepository,
                     application.foodRepository,
-                    application.userRepository
+                    application.userRepository,
+                    application.exerciseRepository
+                ) as T
+            }
+            modelClass.isAssignableFrom(com.example.ui.habit.HabitViewModel::class.java) -> {
+                com.example.ui.habit.HabitViewModel(
+                    application.habitRepository
                 ) as T
             }
             modelClass.isAssignableFrom(com.example.ui.achievements.AchievementViewModel::class.java) -> {

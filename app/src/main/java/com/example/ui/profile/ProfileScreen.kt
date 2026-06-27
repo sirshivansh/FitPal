@@ -1,5 +1,6 @@
 package com.example.ui.profile
 
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -43,6 +44,7 @@ fun ProfileScreen(
     var proteinMultiplier by remember { mutableStateOf(1.6f) }
     var fatMultiplier by remember { mutableStateOf(0.8f) }
     var maintenanceCaloriesStr by remember { mutableStateOf("") }
+    var showFormulaInfoDialog by remember { mutableStateOf(false) }
 
     // Dynamic state loading when profile exists
     LaunchedEffect(profile) {
@@ -96,18 +98,33 @@ fun ProfileScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Let's calculate your metabolic needs",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "We use the Mifflin-St Jeor equation to precisely calculate your BMR and customize daily calorie targets offline.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Setup your metabolic needs",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Get personalized, accurate calorie goals.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                        IconButton(
+                            onClick = { showFormulaInfoDialog = true },
+                            modifier = Modifier.testTag("onboarding_formula_info_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Formula Details",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
             }
@@ -316,20 +333,34 @@ fun ProfileScreen(
             }
 
             // PROTEIN MULTIPLIER SELECTOR
+            val currentWeight = weightStr.toFloatOrNull() ?: 70f
+            val calculatedProtein = (currentWeight * proteinMultiplier).roundToInt()
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Protein Multiplier (g/kg of body weight)",
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Protein Multiplier (g/kg)",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Target: ${calculatedProtein}g",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val proteinOptions = listOf(1.2f, 1.6f, 1.8f, 2.0f, 2.2f)
+                    val proteinOptions = listOf(0.8f, 1.0f, 1.2f, 1.6f, 1.8f, 2.0f)
                     proteinOptions.forEach { opt ->
                         val isSelected = proteinMultiplier == opt
                         OutlinedButton(
@@ -349,13 +380,26 @@ fun ProfileScreen(
             }
 
             // FAT MULTIPLIER SELECTOR
+            val calculatedFat = (currentWeight * fatMultiplier).roundToInt()
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Fat Multiplier (g/kg of body weight)",
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Fat Multiplier (g/kg)",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Target: ${calculatedFat}g",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -423,5 +467,48 @@ fun ProfileScreen(
                 )
             }
         }
+    }
+
+    if (showFormulaInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showFormulaInfoDialog = false },
+            icon = { Icon(Icons.Default.Functions, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Mifflin-St Jeor Equation", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "We use the gold-standard Mifflin-St Jeor equation to precisely estimate your Basal Metabolic Rate (BMR):",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Men:\nBMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age(y) + 5",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Divider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                            Text(
+                                text = "Women:\nBMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age(y) - 161",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    Text(
+                        text = "This calculates your rest energy requirements. Your goal adjustments are then securely calculated offline to provide accurate macros.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showFormulaInfoDialog = false }) {
+                    Text("Got It", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }

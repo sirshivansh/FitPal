@@ -117,7 +117,8 @@ fun MainAppScaffold(
                 DashboardScreen(
                     viewModel = dashboardVm,
                     onNavigateToSettings = { navController.navigate("settings") },
-                    onQuickAddFood = { navController.navigate("food_log/Breakfast") }
+                    onQuickAddFood = { navController.navigate("food_log/Breakfast") },
+                    onNavigateToHabits = { navController.navigate("habits") }
                 )
             }
 
@@ -152,6 +153,14 @@ fun MainAppScaffold(
             composable("settings") {
                 SettingsScreen(
                     profileViewModel = profileViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("habits") {
+                val habitVm: com.example.ui.habit.HabitViewModel = viewModel(factory = factory)
+                com.example.ui.habit.HabitScreen(
+                    viewModel = habitVm,
                     onBack = { navController.popBackStack() }
                 )
             }

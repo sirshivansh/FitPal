@@ -1,5 +1,6 @@
 package com.example.ui.profile
 
+import kotlin.math.roundToInt
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -45,6 +46,13 @@ fun SettingsScreen(
 
     var showClearConfirm by remember { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
+
+    val cloudEmail by profileViewModel.cloudUserEmail.collectAsState()
+    val lastSyncTime by profileViewModel.lastSyncTime.collectAsState()
+    val isSyncing by profileViewModel.isSyncing.collectAsState()
+
+    var loginEmailInput by remember { mutableStateOf("") }
+    var loginPassInput by remember { mutableStateOf("") }
 
     LaunchedEffect(profile) {
         profile?.let { p ->
@@ -134,18 +142,33 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
 
+                    val currentWeight = profile?.currentWeightKg ?: 70f
+                    val calculatedProtein = (currentWeight * proteinMultiplier).roundToInt()
                     // Protein multiplier row
-                    Text(
-                        text = "Protein Multiplier (g/kg)",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Protein Multiplier (g/kg)",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Target: ${calculatedProtein}g",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val proteinOptions = listOf(1.2f, 1.6f, 1.8f, 2.0f, 2.2f)
+                        val proteinOptions = listOf(0.8f, 1.0f, 1.2f, 1.6f, 1.8f, 2.0f)
                         proteinOptions.forEach { opt ->
                             val isSelected = proteinMultiplier == opt
                             OutlinedButton(
@@ -163,12 +186,28 @@ fun SettingsScreen(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     // Fat multiplier row
-                    Text(
-                        text = "Fat Multiplier (g/kg)",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    val calculatedFat = (currentWeight * fatMultiplier).roundToInt()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Fat Multiplier (g/kg)",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Target: ${calculatedFat}g",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -209,6 +248,247 @@ fun SettingsScreen(
                             .testTag("settings_save_macros")
                     ) {
                         Text("Apply Multipliers")
+                    }
+                }
+            }
+
+            // SECTION 3: CLOUD ACCOUNT & BACKUP SYNCHRONIZATION
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("settings_cloud_sync_card"),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (cloudEmail != null) Icons.Default.CloudDone else Icons.Default.CloudQueue,
+                            contentDescription = null,
+                            tint = if (cloudEmail != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Cloud Account & Backup",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    if (cloudEmail == null) {
+                        Text(
+                            text = "Access your profile, meals, weights, and water logs on any device. Sign in with Google or create a dedicated FitPal account.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedTextField(
+                            value = loginEmailInput,
+                            onValueChange = { loginEmailInput = it },
+                            label = { Text("Email Address") },
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("settings_cloud_email")
+                        )
+
+                        OutlinedTextField(
+                            value = loginPassInput,
+                            onValueChange = { loginPassInput = it },
+                            label = { Text("Password") },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth().testTag("settings_cloud_password")
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    if (loginEmailInput.isBlank() || loginPassInput.isBlank()) {
+                                        Toast.makeText(context, "Please fill in email and password", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        profileViewModel.loginWithEmail(
+                                            context,
+                                            loginEmailInput.trim(),
+                                            loginPassInput,
+                                            onSuccess = {
+                                                Toast.makeText(context, "Welcome back! Data restored successfully.", Toast.LENGTH_LONG).show()
+                                            },
+                                            onError = { err ->
+                                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).testTag("settings_sign_in_btn")
+                            ) {
+                                Text("Sign In")
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    if (loginEmailInput.isBlank() || loginPassInput.isBlank()) {
+                                        Toast.makeText(context, "Please fill in email and password", Toast.LENGTH_SHORT).show()
+                                    } else if (!loginEmailInput.contains("@") || loginEmailInput.length < 5) {
+                                        Toast.makeText(context, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        profileViewModel.registerWithEmail(
+                                            context,
+                                            loginEmailInput.trim(),
+                                            loginPassInput,
+                                            onSuccess = {
+                                                Toast.makeText(context, "Account created! Data synced successfully.", Toast.LENGTH_LONG).show()
+                                            },
+                                            onError = { err ->
+                                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).testTag("settings_register_btn")
+                            ) {
+                                Text("Register")
+                            }
+                        }
+
+                        // Google Divider
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Divider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                            Text(
+                                text = " OR ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+                            Divider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+
+                        // Google Sign In Button
+                        Button(
+                            onClick = {
+                                val simulatedGoogleEmail = if (profile != null && profile!!.name.isNotBlank()) {
+                                    "${profile!!.name.lowercase().replace(" ", "")}@gmail.com"
+                                } else {
+                                    "fitpal.user@gmail.com"
+                                }
+                                profileViewModel.loginWithGoogle(context, simulatedGoogleEmail) {
+                                    Toast.makeText(context, "Logged in via Google as $simulatedGoogleEmail", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth().testTag("settings_google_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign In with Google", fontWeight = FontWeight.SemiBold)
+                        }
+                    } else {
+                        // Logged in state
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "Connected Account",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = cloudEmail ?: "",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Status: ${lastSyncTime ?: "Never synced"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    profileViewModel.triggerSync(
+                                        context,
+                                        onSuccess = {
+                                            Toast.makeText(context, "Database backup synced successfully!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        onError = { err ->
+                                            Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                        }
+                                    )
+                                },
+                                enabled = !isSyncing,
+                                modifier = Modifier.weight(1f).testTag("settings_sync_now_btn")
+                            ) {
+                                if (isSyncing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Sync Now")
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    profileViewModel.logout()
+                                    Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f).testTag("settings_logout_btn")
+                            ) {
+                                Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Log Out")
+                            }
+                        }
+                    }
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "💡 Developer Integration Note: FitPal simulates standard secure OAuth authentication and JSON synchronization locally. To attach this to a production Google Sign-In backend or cloud Firestore DB directly, configure a 'google-services.json' in your /app directory and rebuild.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(10.dp)
+                        )
                     }
                 }
             }
@@ -365,7 +645,8 @@ fun SettingsScreen(
                     message = "This will permanently delete your user profile and all logs (meals, workouts, water tracking, weight logs). This action is irreversible.",
                     onConfirm = {
                         com.example.util.HapticFeedbackHelper.triggerRejectOrDelete(view)
-                        profileViewModel.clearAllData()
+                        val app = context.applicationContext as com.example.FitPalApplication
+                        profileViewModel.clearAllData(app.foodRepository, app.exerciseRepository)
                         showClearConfirm = false
                         onBack()
                     },

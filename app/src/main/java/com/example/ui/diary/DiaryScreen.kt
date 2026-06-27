@@ -3,9 +3,11 @@ package com.example.ui.diary
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +32,7 @@ import com.example.ui.components.EmptyState
 import com.example.util.Calculations
 import com.example.util.DateUtils
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,28 +151,75 @@ fun DiaryScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Food Intake", style = MaterialTheme.typography.labelSmall)
-                        Text("$totalFoodCalories kcal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Food Intake", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("$totalFoodCalories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                            Text("kcal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        
+                        Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)))
+                        
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Active Burn", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("-$totalExerciseCalories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
+                            Text("kcal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        
+                        Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)))
+                        
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Net Balance", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val net = totalFoodCalories - totalExerciseCalories
+                            Text("$net", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                            Text("kcal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
-                    Divider(modifier = Modifier.height(30.dp).width(1.dp))
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Active Burn", style = MaterialTheme.typography.labelSmall)
-                        Text("-$totalExerciseCalories kcal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    Divider(modifier = Modifier.height(30.dp).width(1.dp))
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Net Balance", style = MaterialTheme.typography.labelSmall)
-                        Text("${totalFoodCalories - totalExerciseCalories} kcal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Premium linear budget indicator
+                    val progress = if (totalFoodCalories > 0) {
+                        (totalFoodCalories.toFloat() / 2000f).coerceIn(0f, 1f)
+                    } else 0f
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Daily Budget: 2000 kcal",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            val pct = (progress * 100).roundToInt()
+                            Text(
+                                text = "$pct% Eaten",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
@@ -311,11 +361,30 @@ fun MealSectionView(
     val totalCarbs = entries.sumOf { it.carbsGrams.toDouble() }.toInt()
     val totalFat = entries.sumOf { it.fatGrams.toDouble() }.toInt()
 
+    // Determine category icon and color
+    val categoryIcon = when (sectionName.lowercase()) {
+        "breakfast" -> Icons.Default.Coffee
+        "lunch" -> Icons.Default.Restaurant
+        "dinner" -> Icons.Default.LocalPizza
+        else -> Icons.Default.Cake
+    }
+    
+    val categoryColor = when (sectionName.lowercase()) {
+        "breakfast" -> Color(0xFFE67E22)
+        "lunch" -> Color(0xFF2ECC71)
+        "dinner" -> Color(0xFFE74C3C)
+        else -> Color(0xFF9B59B6)
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             // Header
             Row(
                 modifier = Modifier
@@ -325,16 +394,32 @@ fun MealSectionView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(categoryColor.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = categoryIcon,
+                            contentDescription = null,
+                            tint = categoryColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = sectionName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
@@ -345,33 +430,39 @@ fun MealSectionView(
                     Text(
                         text = "$totalCal kcal",
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    IconButton(onClick = onAdd, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Add, contentDescription = "Add $sectionName Log", tint = MaterialTheme.colorScheme.primary)
+                    IconButton(
+                        onClick = onAdd,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add $sectionName Log", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     }
                 }
             }
 
             // Expanded list
             if (isExpanded) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 
                 // Show macro totals for the section
                 if (entries.isNotEmpty()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(bottom = 10.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
-                        Text("P: ${totalProtein}g", style = MaterialTheme.typography.labelSmall, color = com.example.ui.components.MacroProteinColor, fontWeight = FontWeight.Bold)
-                        Text("C: ${totalCarbs}g", style = MaterialTheme.typography.labelSmall, color = com.example.ui.components.MacroCarbsColor, fontWeight = FontWeight.Bold)
-                        Text("F: ${totalFat}g", style = MaterialTheme.typography.labelSmall, color = com.example.ui.components.MacroFatColor, fontWeight = FontWeight.Bold)
+                        Text("Protein: ${totalProtein}g", style = MaterialTheme.typography.labelSmall, color = com.example.ui.components.MacroProteinColor, fontWeight = FontWeight.Bold)
+                        Text("Carbs: ${totalCarbs}g", style = MaterialTheme.typography.labelSmall, color = com.example.ui.components.MacroCarbsColor, fontWeight = FontWeight.Bold)
+                        Text("Fats: ${totalFat}g", style = MaterialTheme.typography.labelSmall, color = com.example.ui.components.MacroFatColor, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -379,45 +470,89 @@ fun MealSectionView(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 6.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.2f))
+                            .padding(8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = entry.foodName,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Text(
-                                text = "${entry.gramsConsumed.toInt()}g  |  P: ${entry.proteinGrams.toInt()}g  C: ${entry.carbsGrams.toInt()}g  F: ${entry.fatGrams.toInt()}g",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            // High-scannability macro capsules!
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${entry.gramsConsumed.toInt()}g",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                                Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outlineVariant))
+                                Text(
+                                    text = "P: ${entry.proteinGrams.toInt()}g",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = com.example.ui.components.MacroProteinColor,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .border(width = 0.5.dp, color = com.example.ui.components.MacroProteinColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                                Text(
+                                    text = "C: ${entry.carbsGrams.toInt()}g",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = com.example.ui.components.MacroCarbsColor,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .border(width = 0.5.dp, color = com.example.ui.components.MacroCarbsColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                                Text(
+                                    text = "F: ${entry.fatGrams.toInt()}g",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = com.example.ui.components.MacroFatColor,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .border(width = 0.5.dp, color = com.example.ui.components.MacroFatColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "${entry.caloriesConsumed.toInt()} kcal",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             val view = androidx.compose.ui.platform.LocalView.current
                             IconButton(
                                 onClick = {
                                     com.example.util.HapticFeedbackHelper.triggerRejectOrDelete(view)
                                     onDelete(entry)
                                 },
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete item",
                                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
@@ -426,10 +561,10 @@ fun MealSectionView(
 
                 if (entries.isEmpty()) {
                     Text(
-                        text = "No foods logged",
+                        text = "No foods logged yet",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp)
                     )
                 }
             }

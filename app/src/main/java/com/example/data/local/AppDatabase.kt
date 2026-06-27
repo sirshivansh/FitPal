@@ -18,9 +18,11 @@ import com.example.data.local.entity.*
         WaterLog::class,
         CustomFood::class,
         CustomExercise::class,
-        DailyActivityCalorieLog::class
+        DailyActivityCalorieLog::class,
+        Habit::class,
+        HabitCompletion::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,6 +33,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weightLogDao(): WeightLogDao
     abstract fun waterLogDao(): WaterLogDao
     abstract fun dailyActivityCalorieDao(): DailyActivityCalorieDao
+    abstract fun habitDao(): HabitDao
 
     companion object {
         @Volatile

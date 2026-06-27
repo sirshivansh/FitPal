@@ -11,12 +11,203 @@ import com.example.util.DateUtils
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ProfileViewModel(
     private val userRepository: UserRepository,
     private val progressRepository: ProgressRepository
 ) : ViewModel() {
+
+    private val _cloudUserEmail = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val cloudUserEmail = _cloudUserEmail.asStateFlow()
+
+    private val _lastSyncTime = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val lastSyncTime = _lastSyncTime.asStateFlow()
+
+    private val _isSyncing = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isSyncing = _isSyncing.asStateFlow()
+
+    private fun getAccountsFile(context: android.content.Context): java.io.File {
+        return java.io.File(context.filesDir, "simulated_cloud_accounts.json")
+    }
+
+    private fun loadAccounts(context: android.content.Context): org.json.JSONObject {
+        val file = getAccountsFile(context)
+        if (!file.exists()) {
+            return org.json.JSONObject().apply { put("accounts", org.json.JSONObject()) }
+        }
+        return try {
+            org.json.JSONObject(file.readText())
+        } catch (e: Exception) {
+            org.json.JSONObject().apply { put("accounts", org.json.JSONObject()) }
+        }
+    }
+
+    private fun saveAccounts(context: android.content.Context, json: org.json.JSONObject) {
+        try {
+            getAccountsFile(context).writeText(json.toString(2))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun registerWithEmail(
+        context: android.content.Context,
+        email: String,
+        pass: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val db = loadAccounts(context)
+                val accounts = db.getJSONObject("accounts")
+                if (accounts.has(email)) {
+                    onError("Account with this email already exists.")
+                    return@launch
+                }
+                
+                // Export current local database as initial backup
+                val backupJson = com.example.util.BackupRestoreHelper.exportDatabaseToJson(context)
+                
+                val userObj = org.json.JSONObject().apply {
+                    put("password", pass)
+                    put("backup", backupJson)
+                }
+                accounts.put(email, userObj)
+                saveAccounts(context, db)
+                
+                _cloudUserEmail.value = email
+                _lastSyncTime.value = "Synced just now"
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.message ?: "Registration failed.")
+            }
+        }
+    }
+
+    fun loginWithEmail(
+        context: android.content.Context,
+        email: String,
+        pass: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val db = loadAccounts(context)
+                val accounts = db.getJSONObject("accounts")
+                if (!accounts.has(email)) {
+                    onError("Account does not exist.")
+                    return@launch
+                }
+                val userObj = accounts.getJSONObject(email)
+                val savedPass = userObj.getString("password")
+                if (savedPass != pass) {
+                    onError("Incorrect password.")
+                    return@launch
+                }
+                
+                // Success! Restore database
+                val backupJson = userObj.optString("backup", "")
+                if (backupJson.isNotBlank()) {
+                    _isSyncing.value = true
+                    val restored = com.example.util.BackupRestoreHelper.importDatabaseFromJson(context, backupJson)
+                    _isSyncing.value = false
+                    if (restored) {
+                        _cloudUserEmail.value = email
+                        _lastSyncTime.value = "Restored from cloud"
+                        onSuccess()
+                    } else {
+                        onError("Failed to restore backup from cloud.")
+                    }
+                } else {
+                    _cloudUserEmail.value = email
+                    _lastSyncTime.value = "No backup on cloud"
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                onError(e.message ?: "Login failed.")
+            }
+        }
+    }
+
+    fun loginWithGoogle(
+        context: android.content.Context,
+        email: String,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val db = loadAccounts(context)
+            val accounts = db.getJSONObject("accounts")
+            if (!accounts.has(email)) {
+                // Auto-register google user
+                val backupJson = com.example.util.BackupRestoreHelper.exportDatabaseToJson(context)
+                val userObj = org.json.JSONObject().apply {
+                    put("password", "google_oauth_bypass")
+                    put("backup", backupJson)
+                }
+                accounts.put(email, userObj)
+                saveAccounts(context, db)
+                _cloudUserEmail.value = email
+                _lastSyncTime.value = "Synced just now"
+            } else {
+                // Auto-login google user and restore
+                val userObj = accounts.getJSONObject(email)
+                val backupJson = userObj.optString("backup", "")
+                if (backupJson.isNotBlank()) {
+                    _isSyncing.value = true
+                    com.example.util.BackupRestoreHelper.importDatabaseFromJson(context, backupJson)
+                    _isSyncing.value = false
+                    _lastSyncTime.value = "Restored from cloud"
+                } else {
+                    _lastSyncTime.value = "No backup on cloud"
+                }
+                _cloudUserEmail.value = email
+            }
+            onSuccess()
+        }
+    }
+
+    fun triggerSync(
+        context: android.content.Context,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val email = _cloudUserEmail.value
+        if (email == null) {
+            onError("You must be logged in to sync.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                _isSyncing.value = true
+                val db = loadAccounts(context)
+                val accounts = db.getJSONObject("accounts")
+                if (accounts.has(email)) {
+                    val userObj = accounts.getJSONObject(email)
+                    val backupJson = com.example.util.BackupRestoreHelper.exportDatabaseToJson(context)
+                    userObj.put("backup", backupJson)
+                    saveAccounts(context, db)
+                    _lastSyncTime.value = "Synced just now"
+                    _isSyncing.value = false
+                    onSuccess()
+                } else {
+                    _isSyncing.value = false
+                    onError("Account session is invalid.")
+                }
+            } catch (e: Exception) {
+                _isSyncing.value = false
+                onError(e.message ?: "Sync failed.")
+            }
+        }
+    }
+
+    fun logout() {
+        _cloudUserEmail.value = null
+        _lastSyncTime.value = null
+    }
 
     val userProfile: StateFlow<UserProfile?> = userRepository.userProfile
         .stateIn(
@@ -123,9 +314,16 @@ class ProfileViewModel(
         }
     }
 
-    fun clearAllData() {
+    fun clearAllData(
+        foodRepository: com.example.data.repository.FoodRepository,
+        exerciseRepository: com.example.data.repository.ExerciseRepository
+    ) {
         viewModelScope.launch {
             userRepository.clearProfile()
+            foodRepository.clearAllFoodData()
+            exerciseRepository.clearAllExerciseData()
+            progressRepository.clearAllProgressData()
+            logout()
         }
     }
 }

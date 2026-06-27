@@ -2,10 +2,13 @@ package com.example.ui.foodlogging
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -18,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +34,7 @@ import com.example.data.repository.SearchResultFood
 import com.example.ui.components.EmptyState
 import com.example.util.Calculations
 import com.example.util.DateUtils
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,43 +48,141 @@ fun FoodLogScreen(
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Search Database", "Quick Manual", "Custom Creator")
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Log $mealType", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("food_log_back_button")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
-                )
+    // Animations success states
+    var isAnimatingSuccess by remember { mutableStateOf(false) }
+    val successAnimProgress = remember { androidx.compose.animation.core.Animatable(0f) }
+    val scope = rememberCoroutineScope()
+
+    val triggerSuccessAndBack = {
+        isAnimatingSuccess = true
+        scope.launch {
+            successAnimProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = androidx.compose.animation.core.tween(durationMillis = 1400)
             )
-        },
-        modifier = modifier
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // Tab Selector
-            TabRow(selectedTabIndex = selectedTab) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title, fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                        modifier = Modifier.testTag("food_tab_$index")
+            onBack()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Log $mealType", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack, modifier = Modifier.testTag("food_log_back_button")) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                     )
+                )
+            },
+            modifier = modifier
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                // Tab Selector
+                TabRow(selectedTabIndex = selectedTab) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = { Text(title, fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                            modifier = Modifier.testTag("food_tab_$index")
+                        )
+                    }
+                }
+
+                when (selectedTab) {
+                    0 -> SearchFoodTab(viewModel, mealType, onFoodLogged = { triggerSuccessAndBack() })
+                    1 -> ManualEntryTab(viewModel, mealType, onFoodLogged = { triggerSuccessAndBack() })
+                    2 -> CustomCreatorTab(viewModel, onBack)
                 }
             }
+        }
 
-            when (selectedTab) {
-                0 -> SearchFoodTab(viewModel, mealType, onBack)
-                1 -> ManualEntryTab(viewModel, mealType, onBack)
-                2 -> CustomCreatorTab(viewModel, onBack)
+        // Beautiful, full-screen interactive logging animation overlay
+        if (isAnimatingSuccess) {
+            val progress = successAnimProgress.value
+            val scale = if (progress < 0.4f) (progress / 0.4f) * 1.3f else (1.0f + (1.0f - progress) * 0.15f)
+            val opacity = if (progress < 0.1f) progress / 0.1f else if (progress > 0.82f) ((1f - progress) / 0.18f) else 1f
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.82f * opacity))
+                    .clickable(enabled = false) {}, // swallow all click gestures
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(110.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f * opacity))
+                            .border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.8f * opacity)), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Success",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(74.dp)
+                                .graphicsLayer(
+                                    scaleX = scale.coerceIn(0.1f, 2.5f),
+                                    scaleY = scale.coerceIn(0.1f, 2.5f),
+                                    alpha = opacity
+                                )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Food Logged!",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 24.sp,
+                        color = Color.White,
+                        modifier = Modifier.graphicsLayer(alpha = opacity)
+                    )
+
+                    Text(
+                        text = "Diary updated successfully",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.graphicsLayer(alpha = opacity)
+                    )
+                }
+
+                // Exploding food emojis!
+                val emojis = listOf("🍎", "🥑", "🍌", "🥦", "🥑", "🥗", "🍇", "🥕", "🥑", "🎉", "✨", "💪")
+                emojis.forEachIndexed { index, emoji ->
+                    val angle = (index * 360f / emojis.size) * (Math.PI / 180f)
+                    val distanceDp = progress * 165f
+                    val xOffset = (Math.cos(angle).toFloat() * distanceDp).dp
+                    val yOffset = (Math.sin(angle).toFloat() * distanceDp).dp
+                    val rotation = progress * 360f * (if (index % 2 == 0) 1f else -1f)
+
+                    Text(
+                        text = emoji,
+                        fontSize = 26.sp,
+                        modifier = Modifier
+                            .offset(x = xOffset, y = yOffset)
+                            .graphicsLayer(
+                                alpha = ((1f - progress) * opacity).coerceIn(0f, 1f),
+                                rotationZ = rotation
+                            )
+                    )
+                }
             }
         }
     }
@@ -90,7 +193,7 @@ fun FoodLogScreen(
 fun SearchFoodTab(
     viewModel: FoodLogViewModel,
     mealType: String,
-    onBack: () -> Unit
+    onFoodLogged: () -> Unit
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val results by viewModel.searchResults.collectAsState()
@@ -101,6 +204,7 @@ fun SearchFoodTab(
 
     val scrollState = rememberScrollState()
     val view = androidx.compose.ui.platform.LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
         modifier = Modifier
@@ -324,7 +428,7 @@ fun SearchFoodTab(
                 confirmButton = {
                     Button(
                         onClick = {
-                            com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                            com.example.util.HapticFeedbackHelper.triggerMealLogged(context, view)
                             val grams = gramsString.toFloatOrNull() ?: 100f
                             viewModel.addFoodToDiary(
                                 date = DateUtils.getTodayDateString(),
@@ -338,7 +442,7 @@ fun SearchFoodTab(
                                 isCustom = food.isCustom
                             )
                             activeFoodForCalculation = null
-                            onBack()
+                            onFoodLogged()
                         },
                         modifier = Modifier.testTag("dialog_add_to_diary")
                     ) {
@@ -360,9 +464,10 @@ fun SearchFoodTab(
 fun ManualEntryTab(
     viewModel: FoodLogViewModel,
     mealType: String,
-    onBack: () -> Unit
+    onFoodLogged: () -> Unit
 ) {
     val view = androidx.compose.ui.platform.LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     var name by remember { mutableStateOf("") }
     var caloriesStr by remember { mutableStateOf("") }
     var proteinStr by remember { mutableStateOf("") }
@@ -471,7 +576,7 @@ fun ManualEntryTab(
 
         Button(
             onClick = {
-                com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                com.example.util.HapticFeedbackHelper.triggerMealLogged(context, view)
                 val calories = caloriesStr.toFloatOrNull() ?: 0f
                 val protein = proteinStr.toFloatOrNull() ?: 0f
                 val carbs = carbsStr.toFloatOrNull() ?: 0f
@@ -487,7 +592,7 @@ fun ManualEntryTab(
                     fat = fat,
                     servingDescription = description
                 )
-                onBack()
+                onFoodLogged()
             },
             enabled = name.isNotBlank() && caloriesStr.isNotBlank(),
             modifier = Modifier
@@ -617,7 +722,7 @@ fun CustomCreatorTab(
 
         Button(
             onClick = {
-                com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                com.example.util.HapticFeedbackHelper.triggerMealLogged(context, view)
                 val calories = caloriesPer100gStr.toFloatOrNull() ?: 0f
                 val protein = proteinPer100gStr.toFloatOrNull() ?: 0f
                 val carbs = carbsPer100gStr.toFloatOrNull() ?: 0f

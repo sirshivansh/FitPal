@@ -1,5 +1,6 @@
 package com.example.ui.dashboard
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToSettings: () -> Unit,
     onQuickAddFood: () -> Unit,
+    onNavigateToHabits: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val profile by viewModel.userProfile.collectAsState()
@@ -47,6 +49,7 @@ fun DashboardScreen(
     val additionalActivityCalories = activityCalorieLog?.additionalCalories ?: 0
 
     var showTdeeDialog by remember { mutableStateOf(false) }
+    var showBmrInfoDialog by remember { mutableStateOf(false) }
     var tdeeInputText by remember { mutableStateOf("") }
 
     // Aggregate values
@@ -102,9 +105,32 @@ fun DashboardScreen(
 
     Scaffold(
         topBar = {
+            val isDark = com.example.ui.theme.isDarkThemeGlobal ?: isSystemInDarkTheme()
             TopAppBar(
                 title = { Text("FitPal Dashboard", fontWeight = FontWeight.Black) },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            com.example.ui.theme.isDarkThemeGlobal = !isDark
+                        },
+                        modifier = Modifier.testTag("dashboard_theme_toggle_button")
+                    ) {
+                        Icon(
+                            imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Toggle Theme",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(
+                        onClick = onNavigateToHabits,
+                        modifier = Modifier.testTag("dashboard_habits_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Habit Tracker",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(
                         onClick = onNavigateToSettings,
                         modifier = Modifier.testTag("dashboard_settings_button")
@@ -140,48 +166,66 @@ fun DashboardScreen(
                 .padding(bottom = 80.dp), // spacing for FAB
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // DATE NAVIGATION BAR (Styled to match the Sleek Interface header)
+            // DATE NAVIGATION BAR (Premium Calendar Strip Layout)
             val isDateToday = date == DateUtils.getTodayDateString()
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(
-                    onClick = { viewModel.setDate(DateUtils.getPreviousDay(date)) },
-                    modifier = Modifier.testTag("dashboard_prev_day")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day")
+                    IconButton(
+                        onClick = { viewModel.setDate(DateUtils.getPreviousDay(date)) },
+                        modifier = Modifier.testTag("dashboard_prev_day")
+                    ) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day")
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = DateUtils.formatDateForDisplay(date).uppercase(),
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.setDate(DateUtils.getNextDay(date)) },
+                        modifier = Modifier.testTag("dashboard_next_day")
+                    ) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Next Day")
+                    }
                 }
 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = if (isDateToday) "TODAY" else "SELECTED DAY",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = DateUtils.formatDateForDisplay(date),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                IconButton(
-                    onClick = { viewModel.setDate(DateUtils.getNextDay(date)) },
-                    modifier = Modifier.testTag("dashboard_next_day")
-                ) {
-                    Icon(Icons.Default.ChevronRight, contentDescription = "Next Day")
-                }
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Horizontal Modern Days Strip Selector
+                HorizontalWeekStrip(
+                    selectedDate = date,
+                    onDateSelected = { newDate ->
+                        viewModel.setDate(newDate)
+                    }
+                )
             }
 
             Column(
@@ -189,6 +233,91 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // MACRONUTRIENT TARGETS (Moved to the Top & styled with a share/download button)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(32.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Macronutrient Breakdown",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                            
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val isDark = com.example.ui.theme.isDarkThemeGlobal ?: isSystemInDarkTheme()
+                            IconButton(
+                                onClick = {
+                                    com.example.util.ShareHelper.shareDailyNutritionImage(
+                                        context = context,
+                                        dateStr = DateUtils.formatDateForDisplay(date),
+                                        isDarkTheme = isDark,
+                                        totalFoodCalories = totalFoodCalories,
+                                        totalExerciseCalories = totalExerciseCalories,
+                                        calorieGoal = calorieGoal,
+                                        proteinGrams = totalProtein,
+                                        proteinGoal = proteinGoal,
+                                        carbsGrams = totalCarbs,
+                                        carbsGoal = carbsGoal,
+                                        fatGrams = totalFat,
+                                        fatGoal = fatGoal
+                                    )
+                                },
+                                modifier = Modifier.testTag("dashboard_share_macros_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share Report as Image",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceAround,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            MacroCircularIndicator(
+                                label = "Protein",
+                                currentGrams = totalProtein,
+                                goalGrams = proteinGoal,
+                                color = MacroProteinColor,
+                                modifier = Modifier.weight(1f).testTag("dashboard_protein_ring")
+                            )
+
+                            MacroCircularIndicator(
+                                label = "Carbs",
+                                currentGrams = totalCarbs,
+                                goalGrams = carbsGoal,
+                                color = MacroCarbsColor,
+                                modifier = Modifier.weight(1f).testTag("dashboard_carbs_ring")
+                            )
+
+                            MacroCircularIndicator(
+                                label = "Fat",
+                                currentGrams = totalFat,
+                                goalGrams = fatGoal,
+                                color = MacroFatColor,
+                                modifier = Modifier.weight(1f).testTag("dashboard_fat_ring")
+                            )
+                        }
+                    }
+                }
                 // HEALTH SAFETY LIMIT WARNING BANNER
                 if (showWarning) {
                     Card(
@@ -281,24 +410,35 @@ fun DashboardScreen(
                                     }
                                 }
 
-                                Text(
-                                    text = "Your BMR (Basal Metabolic Rate): $bmrVal kcal",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "Your BMR: $bmrVal kcal",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    IconButton(
+                                        onClick = { showBmrInfoDialog = true },
+                                        modifier = Modifier.size(24.dp).testTag("bmr_info_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = "Read BMR Info",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
 
                                 Text(
-                                    text = "BMR is the amount of energy your body requires to function at complete rest. To calculate a proper target calorie goal, we must apply your calorie adjustment (deficit/surplus) to your Maintenance Calories (TDEE) instead of BMR.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-
-                                Text(
-                                    text = "Please enter your Maintenance Calories (TDEE) to calculate your calorie target. A calorie deficit cannot be applied directly to BMR.",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
+                                    text = "Set TDEE (Maintenance Calories) to activate daily budget tracker.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Center,
                                     color = MaterialTheme.colorScheme.error
                                 )
@@ -416,52 +556,6 @@ fun DashboardScreen(
                     }
                 }
 
-                // MACRONUTRIENT BARS
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(32.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Macronutrient Targets",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        Divider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                        MacroProgressBar(
-                            label = "Protein",
-                            currentGrams = totalProtein,
-                            goalGrams = proteinGoal,
-                            color = MacroProteinColor,
-                            modifier = Modifier.testTag("dashboard_protein_bar")
-                        )
-
-                        MacroProgressBar(
-                            label = "Carbohydrates",
-                            currentGrams = totalCarbs,
-                            goalGrams = carbsGoal,
-                            color = MacroCarbsColor,
-                            modifier = Modifier.testTag("dashboard_carbs_bar")
-                        )
-
-                        MacroProgressBar(
-                            label = "Fat",
-                            currentGrams = totalFat,
-                            goalGrams = fatGoal,
-                            color = MacroFatColor,
-                            modifier = Modifier.testTag("dashboard_fat_bar")
-                        )
-                    }
-                }
 
                 // WATER TRACKING CARD
                 Card(
@@ -642,6 +736,37 @@ fun DashboardScreen(
             dismissButton = {
                 TextButton(onClick = { showTdeeDialog = false }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showBmrInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showBmrInfoDialog = false },
+            icon = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Basal Metabolic Rate (BMR)", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "BMR represents the minimum energy your body requires to function at complete rest (heart beat, breathing, and temperature maintenance).",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "Why we need TDEE (Maintenance Calories):",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "To calculate a proper daily calorie budget, we must adjust from your Total Daily Energy Expenditure (TDEE) which includes physical activity. Deficits/surpluses cannot be applied directly to BMR because BMR does not include activity, and lowering intake directly below BMR is unsafe for long-term health.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showBmrInfoDialog = false }) {
+                    Text("Got It", fontWeight = FontWeight.Bold)
                 }
             }
         )
