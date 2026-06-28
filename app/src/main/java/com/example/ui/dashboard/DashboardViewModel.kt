@@ -6,6 +6,8 @@ import com.example.data.local.entity.DailyActivityCalorieLog
 import com.example.data.local.entity.ExerciseEntry
 import com.example.data.local.entity.FoodEntry
 import com.example.data.local.entity.WaterLog
+import com.example.data.local.entity.WeightLog
+import com.example.data.local.entity.ProgressPhoto
 import com.example.data.repository.ExerciseRepository
 import com.example.data.repository.FoodRepository
 import com.example.data.repository.ProgressRepository
@@ -25,6 +27,20 @@ class DashboardViewModel(
 
     private val _selectedDate = MutableStateFlow(DateUtils.getTodayDateString())
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
+
+    val weightLogs: StateFlow<List<WeightLog>> = progressRepository.allWeightLogs
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val progressPhotos: StateFlow<List<ProgressPhoto>> = progressRepository.allProgressPhotos
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     val userProfile = userRepository.userProfile
         .stateIn(
@@ -89,7 +105,9 @@ class DashboardViewModel(
             val calorieGoal = com.example.util.Calculations.calculateTargetCalorieGoal(
                 calories.toFloat(),
                 current.weightGoalType,
-                current.calorieAdjustment
+                current.calorieAdjustment,
+                current.bmr,
+                current.gender
             )
             val (carbs, protein, fat) = com.example.util.Calculations.calculateMacrosCustom(
                 calorieGoal,
@@ -123,6 +141,45 @@ class DashboardViewModel(
     fun resetWater() {
         viewModelScope.launch {
             progressRepository.resetWaterLog(_selectedDate.value)
+        }
+    }
+
+    fun logWeight(weight: Float) {
+        viewModelScope.launch {
+            val dateStr = _selectedDate.value
+            progressRepository.insertWeightLog(com.example.data.local.entity.WeightLog(date = dateStr, weightKg = weight))
+            
+            // Also update the user profile's current weight in the DB
+            val profile = userRepository.getUserProfileSync()
+            if (profile != null) {
+                userRepository.saveProfile(profile.copy(currentWeightKg = weight))
+            }
+        }
+    }
+
+    fun addProgressPhoto(dateStr: String, path: String, notesText: String = "") {
+        viewModelScope.launch {
+            progressRepository.insertProgressPhoto(
+                com.example.data.local.entity.ProgressPhoto(
+                    date = dateStr,
+                    imagePath = path,
+                    notes = notesText
+                )
+            )
+        }
+    }
+
+    fun deleteProgressPhoto(photo: ProgressPhoto) {
+        viewModelScope.launch {
+            try {
+                val file = java.io.File(photo.imagePath)
+                if (file.exists()) {
+                    file.delete()
+                }
+            } catch (e: Exception) {
+                // ignore
+            }
+            progressRepository.deleteProgressPhoto(photo)
         }
     }
 }

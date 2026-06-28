@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,7 +13,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material3.*
+import kotlin.math.roundToInt
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -453,4 +456,287 @@ fun HorizontalWeekStrip(
         }
     }
 }
+
+@Composable
+fun CaloricAndMacroProgressBarCard(
+    calorieConsumed: Int,
+    calorieGoal: Int,
+    calorieBurned: Int,
+    proteinConsumed: Float,
+    proteinGoal: Int,
+    carbsConsumed: Float,
+    carbsGoal: Int,
+    fatConsumed: Float,
+    fatGoal: Int,
+    modifier: Modifier = Modifier
+) {
+    val netCalories = calorieConsumed - calorieBurned
+    val remainingCalories = calorieGoal - netCalories
+    val isCalorieExcess = remainingCalories < 0
+    val calorieProgressFraction = if (calorieGoal > 0) netCalories.toFloat() / calorieGoal.toFloat() else 0f
+    val safeCalorieProgress = calorieProgressFraction.coerceIn(0f, 1f)
+
+    val animatedCalorieProgress by animateFloatAsState(
+        targetValue = safeCalorieProgress,
+        animationSpec = tween(durationMillis = 800),
+        label = "CalorieProgress"
+    )
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Assessment,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Daily Intake Progress",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                // Active status label
+                Text(
+                    text = if (isCalorieExcess) "Over Budget" else "On Track",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isCalorieExcess) Color(0xFFE76F51) else Color(0xFF2D6A4F),
+                    modifier = Modifier
+                        .background(
+                            color = if (isCalorieExcess) Color(0xFFE76F51).copy(alpha = 0.1f) else Color(0xFF2D6A4F).copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+
+            // Calorie Linear Progress
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Column {
+                        Text(
+                            text = "Calories (Net)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Net = Eaten ($calorieConsumed) - Active ($calorieBurned)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Text(
+                        text = "$netCalories / $calorieGoal kcal",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                // Bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(12.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(fraction = animatedCalorieProgress)
+                            .clip(CircleShape)
+                            .background(if (isCalorieExcess) Color(0xFFE76F51) else MaterialTheme.colorScheme.primary)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (remainingCalories >= 0) "$remainingCalories kcal remaining" else "${-remainingCalories} kcal over budget",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isCalorieExcess) Color(0xFFE76F51) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${(calorieProgressFraction * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCalorieExcess) Color(0xFFE76F51) else MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Macronutrient Progress bars Stacked
+            Text(
+                text = "Macronutrient Breakdown",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Protein bar
+                MacroProgressRow(
+                    label = "Protein",
+                    consumed = proteinConsumed,
+                    goal = proteinGoal,
+                    color = MacroProteinColor,
+                    testTagPrefix = "protein"
+                )
+
+                // Carbs bar
+                MacroProgressRow(
+                    label = "Carbohydrates",
+                    consumed = carbsConsumed,
+                    goal = carbsGoal,
+                    color = MacroCarbsColor,
+                    testTagPrefix = "carbs"
+                )
+
+                // Fat bar
+                MacroProgressRow(
+                    label = "Fats",
+                    consumed = fatConsumed,
+                    goal = fatGoal,
+                    color = MacroFatColor,
+                    testTagPrefix = "fat"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MacroProgressRow(
+    label: String,
+    consumed: Float,
+    goal: Int,
+    color: Color,
+    testTagPrefix: String
+) {
+    val progressFraction = if (goal > 0) consumed / goal.toFloat() else 0f
+    val safeProgress = progressFraction.coerceIn(0f, 1f)
+    val percentage = (progressFraction * 100).toInt()
+    val isExcess = progressFraction > 1f
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = safeProgress,
+        animationSpec = tween(durationMillis = 800),
+        label = "${label}Progress"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("progress_row_$testTagPrefix"),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(color, CircleShape)
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = "${consumed.roundToInt()}g of ${goal}g",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Progress track
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction = animatedProgress)
+                    .clip(CircleShape)
+                    .background(if (isExcess) Color(0xFFE76F51) else color)
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val remaining = goal - consumed.roundToInt()
+            Text(
+                text = if (remaining >= 0) "${remaining}g remaining" else "${-remaining}g over limit",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isExcess) Color(0xFFE76F51) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "$percentage%",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = if (isExcess) Color(0xFFE76F51) else color
+            )
+        }
+    }
+}
+
 

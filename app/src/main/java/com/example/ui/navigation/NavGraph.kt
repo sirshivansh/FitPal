@@ -31,6 +31,8 @@ import com.example.ui.progress.ProgressScreen
 import com.example.ui.progress.ProgressViewModel
 import com.example.ui.achievements.AchievementScreen
 import com.example.ui.achievements.AchievementViewModel
+import com.example.ui.components.PinLockScreen
+import com.example.util.SecurityUtils
 
 @Composable
 fun FitPalAppContent(
@@ -43,14 +45,23 @@ fun FitPalAppContent(
     val profileViewModel: ProfileViewModel = viewModel(factory = factory)
     val userProfile by profileViewModel.userProfile.collectAsState()
 
-    // If profile has not been created yet, force Onboarding Screen
-    if (userProfile == null) {
-        ProfileScreen(
-            viewModel = profileViewModel,
-            onProfileSaved = { /* Will naturally trigger state update & load main scaffold */ }
+    val passcodeEnabled = remember { SecurityUtils.isPasscodeEnabled(context) }
+    var isAppUnlocked by remember { mutableStateOf(!passcodeEnabled) }
+
+    if (!isAppUnlocked) {
+        PinLockScreen(
+            onUnlockSuccess = { isAppUnlocked = true }
         )
     } else {
-        MainAppScaffold(factory = factory, profileViewModel = profileViewModel)
+        // If profile has not been created yet, force Onboarding Screen
+        if (userProfile == null) {
+            ProfileScreen(
+                viewModel = profileViewModel,
+                onProfileSaved = { /* Will naturally trigger state update & load main scaffold */ }
+            )
+        } else {
+            MainAppScaffold(factory = factory, profileViewModel = profileViewModel)
+        }
     }
 }
 
@@ -117,7 +128,7 @@ fun MainAppScaffold(
                 DashboardScreen(
                     viewModel = dashboardVm,
                     onNavigateToSettings = { navController.navigate("settings") },
-                    onQuickAddFood = { navController.navigate("food_log/Breakfast") },
+                    onQuickAddFood = { selectedDate -> navController.navigate("food_log/Breakfast/$selectedDate") },
                     onNavigateToHabits = { navController.navigate("habits") }
                 )
             }
@@ -126,7 +137,7 @@ fun MainAppScaffold(
                 val diaryVm: DiaryViewModel = viewModel(factory = factory)
                 DiaryScreen(
                     viewModel = diaryVm,
-                    onAddFoodForMeal = { mealType -> navController.navigate("food_log/$mealType") },
+                    onAddFoodForMeal = { mealType, selectedDate -> navController.navigate("food_log/$mealType/$selectedDate") },
                     onAddExercise = { navController.navigate("exercise_log") }
                 )
             }
@@ -166,14 +177,19 @@ fun MainAppScaffold(
             }
 
             composable(
-                route = "food_log/{mealType}",
-                arguments = listOf(navArgument("mealType") { type = NavType.StringType })
+                route = "food_log/{mealType}/{date}",
+                arguments = listOf(
+                    navArgument("mealType") { type = NavType.StringType },
+                    navArgument("date") { type = NavType.StringType }
+                )
             ) { backStackEntry ->
                 val mealType = backStackEntry.arguments?.getString("mealType") ?: "Breakfast"
+                val date = backStackEntry.arguments?.getString("date") ?: com.example.util.DateUtils.getTodayDateString()
                 val foodLogVm: FoodLogViewModel = viewModel(factory = factory)
                 FoodLogScreen(
                     viewModel = foodLogVm,
                     mealType = mealType,
+                    logDate = date,
                     onBack = { navController.popBackStack() }
                 )
             }

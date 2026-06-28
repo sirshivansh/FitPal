@@ -14,6 +14,12 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    
+    // Load persisted font preferences
+    val sharedPrefs = getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+    com.example.ui.theme.globalFontFamilyName = sharedPrefs.getString("font_family_name", "SansSerif") ?: "SansSerif"
+    com.example.ui.theme.globalFontSizeScale = sharedPrefs.getFloat("font_size_scale", 1.0f)
+
     setContent {
       MyApplicationTheme {
         Surface(modifier = Modifier.fillMaxSize()) {

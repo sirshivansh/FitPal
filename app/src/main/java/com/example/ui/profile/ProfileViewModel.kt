@@ -209,6 +209,20 @@ class ProfileViewModel(
         _lastSyncTime.value = null
     }
 
+    fun getSavedAccounts(context: android.content.Context): List<String> {
+        val db = loadAccounts(context)
+        if (db.has("accounts")) {
+            val accounts = db.getJSONObject("accounts")
+            val list = mutableListOf<String>()
+            val keys = accounts.keys()
+            while (keys.hasNext()) {
+                list.add(keys.next() as String)
+            }
+            return list
+        }
+        return emptyList()
+    }
+
     val userProfile: StateFlow<UserProfile?> = userRepository.userProfile
         .stateIn(
             scope = viewModelScope,
@@ -231,16 +245,13 @@ class ProfileViewModel(
     ) {
         viewModelScope.launch {
             val bmr = Calculations.calculateBmr(currentWeightKg, heightCm, age, gender)
-            val calorieGoal = if (maintenanceCalories != null && maintenanceCalories > 0) {
-                Calculations.calculateTargetCalorieGoal(maintenanceCalories.toFloat(), weightGoalType, calorieAdjustment)
+            val baseCalories = if (maintenanceCalories != null && maintenanceCalories > 0) {
+                maintenanceCalories.toFloat()
             } else {
-                0
+                bmr * 1.375f // Fallback: estimate TDEE from BMR using standard lightly active activity factor
             }
-            val (carbs, protein, fat) = if (calorieGoal > 0) {
-                Calculations.calculateMacrosCustom(calorieGoal, currentWeightKg, proteinMultiplier, fatMultiplier)
-            } else {
-                Triple(0, 0, 0)
-            }
+            val calorieGoal = Calculations.calculateTargetCalorieGoal(baseCalories, weightGoalType, calorieAdjustment, bmr, gender)
+            val (carbs, protein, fat) = Calculations.calculateMacrosCustom(calorieGoal, currentWeightKg, proteinMultiplier, fatMultiplier)
 
             val profile = UserProfile(
                 name = name,
@@ -271,16 +282,13 @@ class ProfileViewModel(
     fun updateCalculations(calorieAdjustment: Int, proteinMultiplier: Float, fatMultiplier: Float) {
         viewModelScope.launch {
             val current = userRepository.getUserProfileSync() ?: return@launch
-            val calorieGoal = if (current.maintenanceCalories != null && current.maintenanceCalories > 0) {
-                Calculations.calculateTargetCalorieGoal(current.maintenanceCalories.toFloat(), current.weightGoalType, calorieAdjustment)
+            val baseCalories = if (current.maintenanceCalories != null && current.maintenanceCalories > 0) {
+                current.maintenanceCalories.toFloat()
             } else {
-                0
+                current.bmr * 1.375f // Fallback: estimate TDEE from BMR using standard lightly active activity factor
             }
-            val (carbs, protein, fat) = if (calorieGoal > 0) {
-                Calculations.calculateMacrosCustom(calorieGoal, current.currentWeightKg, proteinMultiplier, fatMultiplier)
-            } else {
-                Triple(0, 0, 0)
-            }
+            val calorieGoal = Calculations.calculateTargetCalorieGoal(baseCalories, current.weightGoalType, calorieAdjustment, current.bmr, current.gender)
+            val (carbs, protein, fat) = Calculations.calculateMacrosCustom(calorieGoal, current.currentWeightKg, proteinMultiplier, fatMultiplier)
 
             val updated = current.copy(
                 dailyCalorieGoal = calorieGoal,

@@ -22,7 +22,8 @@ class FitPalApplication : Application() {
         ProgressRepository(
             database.weightLogDao(),
             database.waterLogDao(),
-            database.dailyActivityCalorieDao()
+            database.dailyActivityCalorieDao(),
+            database.progressPhotoDao()
         )
     }
 }

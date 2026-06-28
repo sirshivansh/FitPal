@@ -8,6 +8,22 @@ import org.json.JSONObject
 
 object BackupRestoreHelper {
 
+    private fun calculateHash(obj: JSONObject): String {
+        val keys = mutableListOf<String>()
+        val it = obj.keys()
+        while (it.hasNext()) {
+            keys.add(it.next())
+        }
+        keys.sort()
+        val sb = StringBuilder()
+        for (k in keys) {
+            sb.append(k).append(":").append(obj.get(k).toString()).append("|")
+        }
+        val salt = "FitPalSecuritySalt_91823_TamperProof"
+        val bytes = java.security.MessageDigest.getInstance("SHA-256").digest((sb.toString() + salt).toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
     suspend fun exportDatabaseToJson(context: Context): String {
         val db = AppDatabase.getDatabase(context)
         
@@ -141,6 +157,10 @@ object BackupRestoreHelper {
         }
         root.put("activityLogs", activityLogsArray)
 
+        // Calculate and embed integrity hash to prevent tampering
+        val hash = calculateHash(root)
+        root.put("integrityHash", hash)
+
         return root.toString(2)
     }
 
@@ -148,6 +168,20 @@ object BackupRestoreHelper {
         return try {
             val db = AppDatabase.getDatabase(context)
             val root = JSONObject(jsonStr)
+
+            // Validate integrity hash to protect database from tampering
+            if (!root.has("integrityHash")) {
+                android.util.Log.e("BackupRestoreHelper", "Import rejected: No integrity hash present (possible tampering).")
+                return false
+            }
+            val providedHash = root.getString("integrityHash")
+            root.remove("integrityHash")
+
+            val expectedHash = calculateHash(root)
+            if (providedHash != expectedHash) {
+                android.util.Log.e("BackupRestoreHelper", "Import rejected: Integrity hash mismatch (content tampered).")
+                return false
+            }
 
             // Clear existing database
             db.userProfileDao().clearProfile()

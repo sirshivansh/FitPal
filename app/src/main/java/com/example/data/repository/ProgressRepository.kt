@@ -3,16 +3,30 @@ package com.example.data.repository
 import com.example.data.local.dao.DailyActivityCalorieDao
 import com.example.data.local.dao.WaterLogDao
 import com.example.data.local.dao.WeightLogDao
+import com.example.data.local.dao.ProgressPhotoDao
 import com.example.data.local.entity.DailyActivityCalorieLog
 import com.example.data.local.entity.WaterLog
 import com.example.data.local.entity.WeightLog
+import com.example.data.local.entity.ProgressPhoto
 import kotlinx.coroutines.flow.Flow
 
 class ProgressRepository(
     private val weightLogDao: WeightLogDao,
     private val waterLogDao: WaterLogDao,
-    private val dailyActivityCalorieDao: DailyActivityCalorieDao
+    private val dailyActivityCalorieDao: DailyActivityCalorieDao,
+    private val progressPhotoDao: ProgressPhotoDao
 ) {
+
+    // Progress Photos
+    val allProgressPhotos: Flow<List<ProgressPhoto>> = progressPhotoDao.getAllProgressPhotos()
+
+    suspend fun insertProgressPhoto(photo: ProgressPhoto) {
+        progressPhotoDao.insertProgressPhoto(photo)
+    }
+
+    suspend fun deleteProgressPhoto(photo: ProgressPhoto) {
+        progressPhotoDao.deleteProgressPhoto(photo)
+    }
 
     // Weight Logging
     val allWeightLogs: Flow<List<WeightLog>> = weightLogDao.getAllWeightLogs()
@@ -55,6 +69,7 @@ class ProgressRepository(
         weightLogDao.clearWeightLogs()
         waterLogDao.clearWaterLogs()
         dailyActivityCalorieDao.clearActivityCalorieLogs()
+        progressPhotoDao.clearProgressPhotos()
     }
 
     // Daily Activity Calories

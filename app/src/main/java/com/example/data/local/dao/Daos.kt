@@ -246,3 +246,21 @@ interface HabitDao {
     @Query("DELETE FROM habit_completion")
     suspend fun clearHabitCompletions()
 }
+
+@Dao
+interface ProgressPhotoDao {
+    @Query("SELECT * FROM progress_photo ORDER BY date ASC")
+    fun getAllProgressPhotos(): Flow<List<ProgressPhoto>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProgressPhoto(photo: ProgressPhoto): Long
+
+    @Delete
+    suspend fun deleteProgressPhoto(photo: ProgressPhoto)
+
+    @Query("DELETE FROM progress_photo")
+    suspend fun clearProgressPhotos()
+
+    @Query("SELECT * FROM progress_photo ORDER BY date ASC")
+    suspend fun getAllProgressPhotosSync(): List<ProgressPhoto>
+}

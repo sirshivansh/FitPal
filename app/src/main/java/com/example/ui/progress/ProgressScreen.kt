@@ -264,6 +264,7 @@ fun ProgressScreen(
                     WeeklyCalorieActivityBarChart(
                         foodEntries = recentFood,
                         exerciseEntries = recentExercise,
+                        weightLogs = weightLogs,
                         modifier = Modifier
                             .height(200.dp)
                             .fillMaxWidth()
@@ -282,11 +283,17 @@ fun ProgressScreen(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Calories Eaten", style = MaterialTheme.typography.labelMedium)
                         }
-                        Spacer(modifier = Modifier.width(24.dp))
+                        Spacer(modifier = Modifier.width(18.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.secondary))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Active Calories Burned", style = MaterialTheme.typography.labelMedium)
+                        }
+                        Spacer(modifier = Modifier.width(18.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(16.dp, 3.dp).background(MaterialTheme.colorScheme.tertiary))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Body Weight (kg)", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -546,28 +553,60 @@ fun MacroDoughnutChart(
 fun WeeklyCalorieActivityBarChart(
     foodEntries: List<com.example.data.local.entity.FoodEntry>,
     exerciseEntries: List<com.example.data.local.entity.ExerciseEntry>,
+    weightLogs: List<com.example.data.local.entity.WeightLog> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val days = remember { DateUtils.getDaysRange(7) }
 
-    val dataPoints = remember(foodEntries, exerciseEntries, days) {
+    data class WeeklyChartPoint(
+        val label: String,
+        val food: Int,
+        val exercise: Int,
+        val weight: Float
+    )
+
+    val dataPoints = remember(foodEntries, exerciseEntries, days, weightLogs) {
         days.map { day ->
             val foodSum = foodEntries.filter { it.date == day }.sumOf { it.caloriesConsumed.toDouble() }.toInt()
             val exerciseSum = exerciseEntries.filter { it.date == day }.sumOf { it.caloriesBurned.toDouble() }.toInt()
+            
+            // Search for weight on this exact day
+            var weightVal = weightLogs.find { it.date == day }?.weightKg ?: 0f
+            
+            // If weight is not logged on this day, forward/backward fill to create a smooth line if we have any data
+            if (weightVal == 0f) {
+                val prevLog = weightLogs.filter { it.date <= day }.maxByOrNull { it.date }
+                if (prevLog != null) {
+                    weightVal = prevLog.weightKg
+                } else {
+                    val nextLog = weightLogs.filter { it.date >= day }.minByOrNull { it.date }
+                    if (nextLog != null) {
+                        weightVal = nextLog.weightKg
+                    }
+                }
+            }
+            
             val shortLabel = DateUtils.formatDateForDisplayShort(day)
-            Triple(shortLabel, foodSum, exerciseSum)
+            WeeklyChartPoint(shortLabel, foodSum, exerciseSum, weightVal)
         }
     }
 
     val maxCalVal = remember(dataPoints) {
-        val maxFood = dataPoints.maxOfOrNull { it.second } ?: 0
-        val maxExercise = dataPoints.maxOfOrNull { it.third } ?: 0
+        val maxFood = dataPoints.maxOfOrNull { it.food } ?: 0
+        val maxExercise = dataPoints.maxOfOrNull { it.exercise } ?: 0
         val rawMax = maxOf(maxFood, maxExercise).toFloat()
         if (rawMax > 100f) rawMax * 1.15f else 1500f
     }
 
+    // Weight range calculations for secondary Y axis
+    val activeWeights = remember(dataPoints) { dataPoints.map { it.weight }.filter { it > 0f } }
+    val minWeight = remember(activeWeights) { if (activeWeights.isNotEmpty()) activeWeights.minOrNull()!! - 1f else 60f }
+    val maxWeight = remember(activeWeights) { if (activeWeights.isNotEmpty()) activeWeights.maxOrNull()!! + 1f else 80f }
+    val weightRange = remember(minWeight, maxWeight) { if (maxWeight - minWeight > 0f) maxWeight - minWeight else 1f }
+
     val foodColor = MaterialTheme.colorScheme.primary
     val exerciseColor = MaterialTheme.colorScheme.secondary
+    val weightColor = MaterialTheme.colorScheme.tertiary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Canvas(modifier = modifier) {
@@ -575,20 +614,26 @@ fun WeeklyCalorieActivityBarChart(
         val height = size.height
 
         val paddingLeft = 70f
-        val paddingRight = 20f
+        val paddingRight = 70f // Increased to fit weight labels on right
         val paddingTop = 40f
         val paddingBottom = 60f
 
         val chartWidth = width - paddingLeft - paddingRight
         val chartHeight = height - paddingTop - paddingBottom
 
-        // Draw horizontal grid lines and Y labels
+        // Draw horizontal grid lines and Y labels (Calories on left, Weight on right)
         val gridLinesCount = 3
-        val paint = android.graphics.Paint().apply {
+        val paintLeft = android.graphics.Paint().apply {
             color = labelColor.toArgb()
             textSize = 9.dp.toPx()
             textAlign = android.graphics.Paint.Align.RIGHT
             typeface = android.graphics.Typeface.DEFAULT
+        }
+        val paintRight = android.graphics.Paint().apply {
+            color = weightColor.toArgb()
+            textSize = 9.dp.toPx()
+            textAlign = android.graphics.Paint.Align.LEFT
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
 
         for (i in 0..gridLinesCount) {
@@ -603,20 +648,31 @@ fun WeeklyCalorieActivityBarChart(
                 strokeWidth = 1.dp.toPx()
             )
 
-            // Y Axis Label
+            // Left Y Axis Label (Calories)
             val labelVal = (ratio * maxCalVal).roundToInt()
             drawContext.canvas.nativeCanvas.drawText(
                 "$labelVal",
                 paddingLeft - 10f,
                 y + 3.dp.toPx(),
-                paint
+                paintLeft
             )
+
+            // Right Y Axis Label (Weight in kg, only if we have active weight logs)
+            if (activeWeights.isNotEmpty()) {
+                val weightLabelVal = minWeight + ratio * weightRange
+                drawContext.canvas.nativeCanvas.drawText(
+                    String.format(java.util.Locale.US, "%.1f kg", weightLabelVal),
+                    width - paddingRight + 10f,
+                    y + 3.dp.toPx(),
+                    paintRight
+                )
+            }
         }
 
-        // Draw bars and X labels
+        // Draw calorie bars and X labels
         val numDays = dataPoints.size
         val groupWidth = chartWidth / numDays
-        val barWidth = groupWidth * 0.35f
+        val barWidth = groupWidth * 0.3f
         val gap = groupWidth * 0.06f
 
         val xPaint = android.graphics.Paint().apply {
@@ -627,9 +683,9 @@ fun WeeklyCalorieActivityBarChart(
         }
 
         dataPoints.forEachIndexed { index, point ->
-            val label = point.first
-            val foodVal = point.second
-            val exerciseVal = point.third
+            val label = point.label
+            val foodVal = point.food
+            val exerciseVal = point.exercise
 
             // Center of group
             val groupX = paddingLeft + index * groupWidth + groupWidth / 2f
@@ -669,6 +725,42 @@ fun WeeklyCalorieActivityBarChart(
                 paddingTop + chartHeight + 18.dp.toPx(),
                 xPaint
             )
+        }
+
+        // Draw Weight Progress Line Overlay (Connecting points)
+        if (activeWeights.isNotEmpty()) {
+            val pointsList = dataPoints.mapIndexed { index, point ->
+                val groupX = paddingLeft + index * groupWidth + groupWidth / 2f
+                val weightVal = point.weight
+                val weightRatio = if (weightRange > 0f) (weightVal - minWeight) / weightRange else 0.5f
+                val y = paddingTop + chartHeight * (1f - weightRatio)
+                Offset(groupX, y)
+            }
+
+            // Draw line connecting the weight points
+            for (i in 0 until pointsList.size - 1) {
+                drawLine(
+                    color = weightColor,
+                    start = pointsList[i],
+                    end = pointsList[i + 1],
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // Draw circular markers at each data point
+            pointsList.forEach { offset ->
+                drawCircle(
+                    color = Color.White,
+                    radius = 5.dp.toPx(),
+                    center = offset
+                )
+                drawCircle(
+                    color = weightColor,
+                    radius = 3.dp.toPx(),
+                    center = offset
+                )
+            }
         }
     }
 }

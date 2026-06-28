@@ -3,6 +3,7 @@ package com.example.ui.dashboard
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,13 +28,20 @@ import com.example.util.DateUtils
 import com.example.util.Calculations
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToSettings: () -> Unit,
-    onQuickAddFood: () -> Unit,
+    onQuickAddFood: (String) -> Unit,
     onNavigateToHabits: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -44,13 +52,65 @@ fun DashboardScreen(
     val waterLog by viewModel.waterLog.collectAsState()
 
     val scrollState = rememberScrollState()
+    val view = androidx.compose.ui.platform.LocalView.current
 
     val activityCalorieLog by viewModel.activityCalorieLog.collectAsState()
     val additionalActivityCalories = activityCalorieLog?.additionalCalories ?: 0
 
+    val weightLogs by viewModel.weightLogs.collectAsState()
+    val progressPhotos by viewModel.progressPhotos.collectAsState()
+
+    var weightInputText by remember { mutableStateOf("") }
+    val loggedWeightForSelectedDate = remember(weightLogs, date) {
+        weightLogs.find { it.date == date }
+    }
+    LaunchedEffect(loggedWeightForSelectedDate) {
+        weightInputText = if (loggedWeightForSelectedDate != null) {
+            loggedWeightForSelectedDate.weightKg.toString()
+        } else {
+            ""
+        }
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            if (uri != null) {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val file = java.io.File(context.filesDir, "progress_${date}_${System.currentTimeMillis()}.jpg")
+                    file.outputStream().use { output ->
+                        inputStream?.copyTo(output)
+                    }
+                    viewModel.addProgressPhoto(date, file.absolutePath, "")
+                } catch (e: Exception) {
+                    android.util.Log.e("DashboardScreen", "Error saving progress photo", e)
+                }
+            }
+        }
+    )
+
+    // Timelapse player engine
+    var isTimelapsePlaying by remember { mutableStateOf(false) }
+    var currentTimelapseIndex by remember { mutableStateOf(0) }
+    var timelapseSpeedMs by remember { mutableStateOf(400) } // speed in ms per frame
+    var selectedPhotoToView by remember { mutableStateOf<com.example.data.local.entity.ProgressPhoto?>(null) }
+    var showBodyProgressMode by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isTimelapsePlaying, progressPhotos) {
+        if (isTimelapsePlaying && progressPhotos.isNotEmpty()) {
+            while (isTimelapsePlaying) {
+                kotlinx.coroutines.delay(timelapseSpeedMs.toLong())
+                currentTimelapseIndex = (currentTimelapseIndex + 1) % progressPhotos.size
+            }
+        }
+    }
+
     var showTdeeDialog by remember { mutableStateOf(false) }
     var showBmrInfoDialog by remember { mutableStateOf(false) }
     var tdeeInputText by remember { mutableStateOf("") }
+    var useProgressBarMode by remember { mutableStateOf(true) }
 
     // Aggregate values
     val totalFoodCalories = foodEntries.sumOf { it.caloriesConsumed.toDouble() }.toInt()
@@ -62,17 +122,24 @@ fun DashboardScreen(
 
     val isMaintenanceAvailable = profile != null && profile!!.maintenanceCalories != null && profile!!.maintenanceCalories!! > 0
 
-    val calorieGoal = if (isMaintenanceAvailable) {
+    val calorieGoal = if (profile != null) {
+        val baseCalories = if (isMaintenanceAvailable) {
+            profile!!.maintenanceCalories!!.toFloat()
+        } else {
+            profile!!.bmr * 1.375f // Fallback: estimate TDEE from BMR using standard lightly active activity factor
+        }
         Calculations.calculateTargetCalorieGoal(
-            dailyCalories = profile!!.maintenanceCalories!!.toFloat(),
+            dailyCalories = baseCalories,
             weightGoalType = profile!!.weightGoalType,
-            adjustmentValue = profile!!.calorieAdjustment
+            adjustmentValue = profile!!.calorieAdjustment,
+            bmr = profile!!.bmr,
+            gender = profile!!.gender
         )
     } else {
-        0
+        2000
     }
 
-    val macroGoals = if (profile != null && calorieGoal > 0) {
+    val macroGoals = if (profile != null) {
         Calculations.calculateMacrosCustom(
             targetCalories = calorieGoal,
             weightKg = profile!!.currentWeightKg,
@@ -80,7 +147,7 @@ fun DashboardScreen(
             fatMultiplier = profile!!.fatMultiplier
         )
     } else {
-        Triple(0, 0, 0)
+        Triple(250, 140, 65) // Reasonable fallback targets
     }
 
     val carbsGoal = macroGoals.first
@@ -107,8 +174,26 @@ fun DashboardScreen(
         topBar = {
             val isDark = com.example.ui.theme.isDarkThemeGlobal ?: isSystemInDarkTheme()
             TopAppBar(
-                title = { Text("FitPal Dashboard", fontWeight = FontWeight.Black) },
+                title = {
+                    Text(
+                        text = if (showBodyProgressMode) "Body & Progress" else "FitPal Dashboard",
+                        fontWeight = FontWeight.Black
+                    )
+                },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            showBodyProgressMode = !showBodyProgressMode
+                            com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                        },
+                        modifier = Modifier.testTag("dashboard_mode_toggle_button")
+                    ) {
+                        Icon(
+                            imageVector = if (showBodyProgressMode) Icons.Default.FitnessCenter else Icons.Default.PhotoCamera,
+                            contentDescription = "Toggle Dashboard Mode",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(
                         onClick = {
                             com.example.ui.theme.isDarkThemeGlobal = !isDark
@@ -145,7 +230,7 @@ fun DashboardScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onQuickAddFood,
+                onClick = { onQuickAddFood(date) },
                 modifier = Modifier
                     .testTag("dashboard_quick_add_fab")
                     .padding(bottom = 16.dp),
@@ -233,13 +318,194 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // MACRONUTRIENT TARGETS (Moved to the Top & styled with a share/download button)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(32.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                // Segmented Button Row to easily swap views
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
                 ) {
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        onClick = {
+                            showBodyProgressMode = false
+                            com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                        },
+                        selected = !showBodyProgressMode
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("Fitness Logs", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        onClick = {
+                            showBodyProgressMode = true
+                            com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                        },
+                        selected = showBodyProgressMode
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("Body Progress", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                if (!showBodyProgressMode) {
+                    // Modern View Mode Selector (Bars vs Rings)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Daily Analytics",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    useProgressBarMode = true
+                                    com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = if (useProgressBarMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.testTag("toggle_bars_view")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Text("Progress Bars", fontWeight = if (useProgressBarMode) FontWeight.ExtraBold else FontWeight.Medium)
+                                }
+                            }
+                            
+                            TextButton(
+                                onClick = {
+                                    useProgressBarMode = false
+                                    com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = if (!useProgressBarMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.testTag("toggle_rings_view")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Text("Circular Rings", fontWeight = if (!useProgressBarMode) FontWeight.ExtraBold else FontWeight.Medium)
+                                }
+                            }
+                        }
+                    }
+
+                    if (useProgressBarMode) {
+                        // VISUAL PROGRESS BAR COMPONENT (Default & Highly aesthetic!)
+                        CaloricAndMacroProgressBarCard(
+                            calorieConsumed = totalFoodCalories,
+                            calorieGoal = calorieGoal,
+                            calorieBurned = totalExerciseCalories,
+                            proteinConsumed = totalProtein,
+                            proteinGoal = proteinGoal,
+                            carbsConsumed = totalCarbs,
+                            carbsGoal = carbsGoal,
+                            fatConsumed = totalFat,
+                            fatGoal = fatGoal,
+                            modifier = Modifier.testTag("dashboard_progress_bar_card")
+                        )
+
+                        // HEALTH SAFETY LIMIT WARNING BANNER
+                        if (showWarning) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                ),
+                                modifier = Modifier.fillMaxWidth().testTag("warning_banner_bars")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Nutritional Warning",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                        Text(
+                                            text = "Your daily net calories are below the recommended healthy minimum (${if (profile?.gender == "female") "1200" else "1500"} kcal). Please ensure you eat enough to fuel your metabolism.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Prompt to customize TDEE if not set manually
+                        if (!isMaintenanceAvailable) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().testTag("estimated_tdee_prompt_bars"),
+                                shape = RoundedCornerShape(20.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Using estimated TDEE",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            text = "You are currently tracking against physiological estimates. Set your own custom TDEE for exact custom targets.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = {
+                                            tdeeInputText = ""
+                                            showTdeeDialog = true
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.testTag("set_estimated_tdee_button")
+                                    ) {
+                                        Text("Set", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // FALLBACK / DETAILED CIRCULAR RINGS VIEW (Rings Mode)
+                        // MACRONUTRIENT TARGETS (Moved to the Top & styled with a share/download button)
+                        Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(32.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -460,6 +726,7 @@ fun DashboardScreen(
                         }
                     }
                 }
+                    }
 
                 // ADDITIONAL ACTIVITY CALORIES CARD
                 Card(
@@ -687,6 +954,427 @@ fun DashboardScreen(
                         )
                     }
                 }
+
+                } // End of !showBodyProgressMode
+
+                if (showBodyProgressMode) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // DAILY BODY WEIGHT LOG CARD
+                    Card(
+                    modifier = Modifier.fillMaxWidth().testTag("weight_log_card"),
+                    shape = RoundedCornerShape(32.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Daily Body Weight",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Log weight for date: ${DateUtils.formatDateForDisplay(date)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.TrendingDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        if (loggedWeightForSelectedDate != null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                                    .padding(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Logged weight on this day:",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            text = "${loggedWeightForSelectedDate.weightKg} kg",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Black,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    Text(
+                                        text = "Saved",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.surface)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "No weight logged for this day yet. Keep your weight logs daily to trace progress over time.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val view = androidx.compose.ui.platform.LocalView.current
+                            OutlinedTextField(
+                                value = weightInputText,
+                                onValueChange = { weightInputText = it },
+                                label = { Text("Weight (kg)") },
+                                placeholder = { Text("e.g. 72.5") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("dashboard_weight_input")
+                            )
+
+                            Button(
+                                onClick = {
+                                    val weight = weightInputText.toFloatOrNull()
+                                    if (weight != null && weight > 20f) {
+                                        viewModel.logWeight(weight)
+                                        com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                                    }
+                                },
+                                enabled = weightInputText.isNotBlank(),
+                                modifier = Modifier
+                                    .height(56.dp)
+                                    .testTag("dashboard_weight_save_button")
+                            ) {
+                                Text(if (loggedWeightForSelectedDate != null) "Update" else "Log", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // DAILY PROGRESS PHOTOS & TIMELAPSE CARD
+                Card(
+                    modifier = Modifier.fillMaxWidth().testTag("progress_photos_card"),
+                    shape = RoundedCornerShape(32.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Transformation Gallery & Timelapse",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Auto-aligned square progress tracker",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        val view = androidx.compose.ui.platform.LocalView.current
+
+                        // Button to upload photo
+                        val photoForSelectedDate = remember(progressPhotos, date) {
+                            progressPhotos.find { it.date == date }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                                    imagePickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier.testTag("upload_progress_photo_button")
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Upload Photo for ${DateUtils.formatDateForDisplayShort(date)}")
+                            }
+
+                            if (photoForSelectedDate != null) {
+                                TextButton(
+                                    onClick = {
+                                        viewModel.deleteProgressPhoto(photoForSelectedDate)
+                                        com.example.util.HapticFeedbackHelper.triggerRejectOrDelete(view)
+                                    },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                    modifier = Modifier.testTag("delete_selected_date_photo")
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Remove")
+                                }
+                            }
+                        }
+
+                        if (progressPhotos.isEmpty()) {
+                            // Placeholder
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(150.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PhotoCamera,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                    Text(
+                                        text = "No progress photos uploaded yet.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "Upload photos to trace your body transformation and watch your timelapse progression!",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            // Primary Viewer (Timelapse or Selected Photo)
+                            val displayPhoto = if (isTimelapsePlaying) {
+                                progressPhotos.getOrNull(currentTimelapseIndex)
+                            } else {
+                                selectedPhotoToView ?: photoForSelectedDate ?: progressPhotos.lastOrNull()
+                            }
+
+                            if (displayPhoto != null) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Main aligned image view
+                                    Box(
+                                        modifier = Modifier
+                                            .size(240.dp)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(Color.Black)
+                                    ) {
+                                        AsyncImage(
+                                            model = displayPhoto.imagePath,
+                                            contentDescription = "Transformation frame",
+                                            contentScale = ContentScale.Crop, // Auto center crops to guarantee visual alignment
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+
+                                        // Overlay Grid to help user align camera on upload, or date label
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .background(Color.Black.copy(alpha = 0.6f))
+                                                .padding(6.dp)
+                                        ) {
+                                            Text(
+                                                text = DateUtils.formatDateForDisplay(displayPhoto.date),
+                                                color = Color.White,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+
+                                    // Controls Panel
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(
+                                            onClick = {
+                                                isTimelapsePlaying = !isTimelapsePlaying
+                                                com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                                            },
+                                            modifier = Modifier
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                                .testTag("play_timelapse_button")
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isTimelapsePlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                contentDescription = "Play/Pause Timelapse",
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
+
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = if (isTimelapsePlaying) "Playing Timelapse" else "Slideshow Viewer",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = if (isTimelapsePlaying) "Frame ${currentTimelapseIndex + 1} / ${progressPhotos.size}" else "Select photo below to view",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    // Speed Slider for Timelapse
+                                    if (isTimelapsePlaying) {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text("Timelapse speed", style = MaterialTheme.typography.labelSmall)
+                                                Text("${timelapseSpeedMs}ms", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                            }
+                                            Slider(
+                                                value = timelapseSpeedMs.toFloat(),
+                                                onValueChange = { timelapseSpeedMs = it.toInt() },
+                                                valueRange = 100f..1000f,
+                                                modifier = Modifier.fillMaxWidth().height(24.dp).testTag("timelapse_speed_slider")
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Horizontal list of thumbnails
+                            Text(
+                                text = "Timeline History Journey:",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                items(progressPhotos) { photo ->
+                                    val isSelected = displayPhoto?.id == photo.id
+                                    Card(
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .border(
+                                                width = if (isSelected) 3.dp else 1.dp,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                                shape = RoundedCornerShape(12.dp)
+                                            )
+                                            .clickable {
+                                                isTimelapsePlaying = false
+                                                selectedPhotoToView = photo
+                                                com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                                            },
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                    ) {
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            AsyncImage(
+                                                model = photo.imagePath,
+                                                contentDescription = "Thumbnail",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+
+                                            // Small overlay showing day of month or date
+                                            Box(
+                                                modifier = Modifier
+                                                    .align(Alignment.BottomCenter)
+                                                    .fillMaxWidth()
+                                                    .background(Color.Black.copy(alpha = 0.5f))
+                                                    .padding(2.dp)
+                                            ) {
+                                                Text(
+                                                    text = DateUtils.formatDateForDisplayShort(photo.date),
+                                                    color = Color.White,
+                                                    style = androidx.compose.ui.text.TextStyle(fontSize = 7.sp),
+                                                    fontWeight = FontWeight.Bold,
+                                                    textAlign = TextAlign.Center,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                } // End of showBodyProgressMode
             }
         }
     }

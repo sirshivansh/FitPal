@@ -78,7 +78,7 @@ class HabitViewModel(
 
     fun resetHabits() {
         viewModelScope.launch {
-            habitRepository.clearAllHabitData()
+            // Non-destructive: only seeds defaults if the database is currently empty
             habitRepository.seedDefaultHabits()
         }
     }

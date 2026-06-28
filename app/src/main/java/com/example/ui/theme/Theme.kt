@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.sp
 
 private val DarkColorScheme =
   darkColorScheme(
@@ -51,6 +52,8 @@ private val LightColorScheme =
   )
 
 var isDarkThemeGlobal by mutableStateOf<Boolean?>(null)
+var globalFontFamilyName by mutableStateOf("SansSerif")
+var globalFontSizeScale by mutableStateOf(1.0f)
 
 @Composable
 fun MyApplicationTheme(
@@ -70,5 +73,33 @@ fun MyApplicationTheme(
       else -> LightColorScheme
     }
 
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  val fontFamily = when (globalFontFamilyName) {
+    "Serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+    "Monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+    "Cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
+    else -> androidx.compose.ui.text.font.FontFamily.Default
+  }
+
+  val scale = globalFontSizeScale
+  val defaultTypography = androidx.compose.material3.Typography()
+
+  val customTypography = androidx.compose.material3.Typography(
+    displayLarge = defaultTypography.displayLarge.copy(fontFamily = fontFamily, fontSize = (defaultTypography.displayLarge.fontSize.value * scale).sp, lineHeight = (defaultTypography.displayLarge.lineHeight.value * scale).sp),
+    displayMedium = defaultTypography.displayMedium.copy(fontFamily = fontFamily, fontSize = (defaultTypography.displayMedium.fontSize.value * scale).sp, lineHeight = (defaultTypography.displayMedium.lineHeight.value * scale).sp),
+    displaySmall = defaultTypography.displaySmall.copy(fontFamily = fontFamily, fontSize = (defaultTypography.displaySmall.fontSize.value * scale).sp, lineHeight = (defaultTypography.displaySmall.lineHeight.value * scale).sp),
+    headlineLarge = defaultTypography.headlineLarge.copy(fontFamily = fontFamily, fontSize = (defaultTypography.headlineLarge.fontSize.value * scale).sp, lineHeight = (defaultTypography.headlineLarge.lineHeight.value * scale).sp),
+    headlineMedium = defaultTypography.headlineMedium.copy(fontFamily = fontFamily, fontSize = (defaultTypography.headlineMedium.fontSize.value * scale).sp, lineHeight = (defaultTypography.headlineMedium.lineHeight.value * scale).sp),
+    headlineSmall = defaultTypography.headlineSmall.copy(fontFamily = fontFamily, fontSize = (defaultTypography.headlineSmall.fontSize.value * scale).sp, lineHeight = (defaultTypography.headlineSmall.lineHeight.value * scale).sp),
+    titleLarge = defaultTypography.titleLarge.copy(fontFamily = fontFamily, fontSize = (defaultTypography.titleLarge.fontSize.value * scale).sp, lineHeight = (defaultTypography.titleLarge.lineHeight.value * scale).sp),
+    titleMedium = defaultTypography.titleMedium.copy(fontFamily = fontFamily, fontSize = (defaultTypography.titleMedium.fontSize.value * scale).sp, lineHeight = (defaultTypography.titleMedium.lineHeight.value * scale).sp),
+    titleSmall = defaultTypography.titleSmall.copy(fontFamily = fontFamily, fontSize = (defaultTypography.titleSmall.fontSize.value * scale).sp, lineHeight = (defaultTypography.titleSmall.lineHeight.value * scale).sp),
+    bodyLarge = defaultTypography.bodyLarge.copy(fontFamily = fontFamily, fontSize = (defaultTypography.bodyLarge.fontSize.value * scale).sp, lineHeight = (defaultTypography.bodyLarge.lineHeight.value * scale).sp),
+    bodyMedium = defaultTypography.bodyMedium.copy(fontFamily = fontFamily, fontSize = (defaultTypography.bodyMedium.fontSize.value * scale).sp, lineHeight = (defaultTypography.bodyMedium.lineHeight.value * scale).sp),
+    bodySmall = defaultTypography.bodySmall.copy(fontFamily = fontFamily, fontSize = (defaultTypography.bodySmall.fontSize.value * scale).sp, lineHeight = (defaultTypography.bodySmall.lineHeight.value * scale).sp),
+    labelLarge = defaultTypography.labelLarge.copy(fontFamily = fontFamily, fontSize = (defaultTypography.labelLarge.fontSize.value * scale).sp, lineHeight = (defaultTypography.labelLarge.lineHeight.value * scale).sp),
+    labelMedium = defaultTypography.labelMedium.copy(fontFamily = fontFamily, fontSize = (defaultTypography.labelMedium.fontSize.value * scale).sp, lineHeight = (defaultTypography.labelMedium.lineHeight.value * scale).sp),
+    labelSmall = defaultTypography.labelSmall.copy(fontFamily = fontFamily, fontSize = (defaultTypography.labelSmall.fontSize.value * scale).sp, lineHeight = (defaultTypography.labelSmall.lineHeight.value * scale).sp)
+  )
+
+  MaterialTheme(colorScheme = colorScheme, typography = customTypography, content = content)
 }

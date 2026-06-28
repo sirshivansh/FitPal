@@ -130,3 +130,11 @@ data class HabitCompletion(
     val habitId: Long,
     val date: String // YYYY-MM-DD
 )
+
+@Entity(tableName = "progress_photo")
+data class ProgressPhoto(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: String, // YYYY-MM-DD
+    val imagePath: String,
+    val notes: String = ""
+)

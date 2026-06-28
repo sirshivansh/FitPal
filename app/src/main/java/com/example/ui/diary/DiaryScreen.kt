@@ -38,13 +38,31 @@ import kotlin.math.roundToInt
 @Composable
 fun DiaryScreen(
     viewModel: DiaryViewModel,
-    onAddFoodForMeal: (String) -> Unit,
+    onAddFoodForMeal: (String, String) -> Unit,
     onAddExercise: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val date by viewModel.selectedDate.collectAsState()
     val foodEntries by viewModel.foodEntries.collectAsState()
     val exerciseEntries by viewModel.exerciseEntries.collectAsState()
+    val profile by viewModel.userProfile.collectAsState()
+
+    val calorieGoal = if (profile != null) {
+        val baseCalories = if (profile!!.maintenanceCalories != null && profile!!.maintenanceCalories!! > 0) {
+            profile!!.maintenanceCalories!!.toFloat()
+        } else {
+            profile!!.bmr * 1.375f // Fallback: estimate TDEE from BMR using standard lightly active activity factor
+        }
+        com.example.util.Calculations.calculateTargetCalorieGoal(
+            dailyCalories = baseCalories,
+            weightGoalType = profile!!.weightGoalType,
+            adjustmentValue = profile!!.calorieAdjustment,
+            bmr = profile!!.bmr,
+            gender = profile!!.gender
+        )
+    } else {
+        2000
+    }
 
     val snackbarHostState = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -190,7 +208,7 @@ fun DiaryScreen(
 
                     // Premium linear budget indicator
                     val progress = if (totalFoodCalories > 0) {
-                        (totalFoodCalories.toFloat() / 2000f).coerceIn(0f, 1f)
+                        (totalFoodCalories.toFloat() / calorieGoal.toFloat()).coerceIn(0f, 1f)
                     } else 0f
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -208,7 +226,7 @@ fun DiaryScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Daily Budget: 2000 kcal",
+                                text = "Daily Budget: $calorieGoal kcal",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -236,7 +254,7 @@ fun DiaryScreen(
                 MealSectionView(
                     sectionName = "Breakfast",
                     entries = breakfast,
-                    onAdd = { onAddFoodForMeal("Breakfast") },
+                    onAdd = { onAddFoodForMeal("Breakfast", date) },
                     onDelete = { entry ->
                         viewModel.deleteFoodEntry(entry)
                         scope.launch {
@@ -256,7 +274,7 @@ fun DiaryScreen(
                 MealSectionView(
                     sectionName = "Lunch",
                     entries = lunch,
-                    onAdd = { onAddFoodForMeal("Lunch") },
+                    onAdd = { onAddFoodForMeal("Lunch", date) },
                     onDelete = { entry ->
                         viewModel.deleteFoodEntry(entry)
                         scope.launch {
@@ -276,7 +294,7 @@ fun DiaryScreen(
                 MealSectionView(
                     sectionName = "Dinner",
                     entries = dinner,
-                    onAdd = { onAddFoodForMeal("Dinner") },
+                    onAdd = { onAddFoodForMeal("Dinner", date) },
                     onDelete = { entry ->
                         viewModel.deleteFoodEntry(entry)
                         scope.launch {
@@ -296,7 +314,7 @@ fun DiaryScreen(
                 MealSectionView(
                     sectionName = "Snacks",
                     entries = snacks,
-                    onAdd = { onAddFoodForMeal("Snacks") },
+                    onAdd = { onAddFoodForMeal("Snacks", date) },
                     onDelete = { entry ->
                         viewModel.deleteFoodEntry(entry)
                         scope.launch {

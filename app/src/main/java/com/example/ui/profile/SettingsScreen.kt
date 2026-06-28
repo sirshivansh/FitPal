@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -53,6 +56,10 @@ fun SettingsScreen(
 
     var loginEmailInput by remember { mutableStateOf("") }
     var loginPassInput by remember { mutableStateOf("") }
+
+    var isPasscodeEnabled by remember { mutableStateOf(com.example.util.SecurityUtils.isPasscodeEnabled(context)) }
+    var showSetPinDialog by remember { mutableStateOf(false) }
+    var showVerifyDisablePinDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(profile) {
         profile?.let { p ->
@@ -580,6 +587,365 @@ fun SettingsScreen(
                         Text("Send Test Notification")
                     }
                 }
+            }
+
+            // SECTION: VISUAL STYLE & ACCESSIBILITY (FONT AND SIZES)
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Visual Style & Accessibility",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Customize the font family and text sizes across the whole application to suit your preferences.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Font Family Selector
+                    Text(
+                        text = "Font Family",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val fonts = listOf(
+                        "SansSerif" to "Default",
+                        "Serif" to "Serif",
+                        "Monospace" to "Monospace",
+                        "Cursive" to "Cursive"
+                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        fonts.forEach { (key, label) ->
+                            val isSelected = com.example.ui.theme.globalFontFamilyName == key
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                                    com.example.ui.theme.globalFontFamilyName = key
+                                    val sp = context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                    sp.edit().putString("font_family_name", key).apply()
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.bodySmall) },
+                                modifier = Modifier.weight(1f).testTag("font_family_$key")
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Font Size Selector
+                    Text(
+                        text = "Font Size Scale",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val sizes = listOf(
+                        0.85f to "Small (85%)",
+                        1.0f to "Medium (100%)",
+                        1.15f to "Large (115%)",
+                        1.30f to "Extra (130%)"
+                    )
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            sizes.take(2).forEach { (scale, label) ->
+                                val isSelected = com.example.ui.theme.globalFontSizeScale == scale
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                                        com.example.ui.theme.globalFontSizeScale = scale
+                                        val sp = context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                        sp.edit().putFloat("font_size_scale", scale).apply()
+                                    },
+                                    label = { Text(label, style = MaterialTheme.typography.bodySmall) },
+                                    modifier = Modifier.weight(1f).testTag("font_size_${(scale * 100).toInt()}")
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            sizes.drop(2).forEach { (scale, label) ->
+                                val isSelected = com.example.ui.theme.globalFontSizeScale == scale
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        com.example.util.HapticFeedbackHelper.triggerConfirm(view)
+                                        com.example.ui.theme.globalFontSizeScale = scale
+                                        val sp = context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                        sp.edit().putFloat("font_size_scale", scale).apply()
+                                    },
+                                    label = { Text(label, style = MaterialTheme.typography.bodySmall) },
+                                    modifier = Modifier.weight(1f).testTag("font_size_${(scale * 100).toInt()}")
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // SECTION 2.5: PRIVACY & SECURITY
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Privacy & Security",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Passcode Protection",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Lock FitPal on app startup to secure your private weight records and transformation photos.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        Switch(
+                            checked = isPasscodeEnabled,
+                            onCheckedChange = { isChecked ->
+                                com.example.util.HapticFeedbackHelper.triggerLightTap(view)
+                                if (isChecked) {
+                                    showSetPinDialog = true
+                                } else {
+                                    showVerifyDisablePinDialog = true
+                                }
+                            },
+                            modifier = Modifier.testTag("settings_passcode_switch")
+                        )
+                    }
+                }
+            }
+
+            if (showSetPinDialog) {
+                var newPin by remember { mutableStateOf("") }
+                var confirmPin by remember { mutableStateOf("") }
+                var pinStep by remember { mutableStateOf(1) } // 1 for enter, 2 for confirm
+                var setupError by remember { mutableStateOf("") }
+
+                AlertDialog(
+                    onDismissRequest = { showSetPinDialog = false },
+                    title = {
+                        Text(
+                            text = if (pinStep == 1) "Create Passcode" else "Confirm Passcode",
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (pinStep == 1) "Enter a 4-digit security PIN:" else "Re-enter your 4-digit PIN to confirm:",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+
+                            val enteredValue = if (pinStep == 1) newPin else confirmPin
+                            
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            ) {
+                                for (i in 0 until 4) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(androidx.compose.foundation.shape.CircleShape)
+                                            .background(
+                                                if (i < enteredValue.length) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, androidx.compose.foundation.shape.CircleShape)
+                                    )
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = enteredValue,
+                                onValueChange = { newVal ->
+                                    if (newVal.length <= 4 && newVal.all { it.isDigit() }) {
+                                        if (pinStep == 1) newPin = newVal else confirmPin = newVal
+                                        setupError = ""
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                placeholder = { Text("4-digit PIN") },
+                                modifier = Modifier
+                                    .width(150.dp)
+                                    .testTag("settings_setup_pin_field")
+                            )
+
+                            if (setupError.isNotEmpty()) {
+                                Text(
+                                    text = setupError,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val enteredValue = if (pinStep == 1) newPin else confirmPin
+                                if (enteredValue.length != 4) {
+                                    setupError = "PIN must be exactly 4 digits."
+                                    return@Button
+                                }
+                                if (pinStep == 1) {
+                                    pinStep = 2
+                                } else {
+                                    if (newPin == confirmPin) {
+                                        com.example.util.SecurityUtils.enablePasscode(context, newPin)
+                                        isPasscodeEnabled = true
+                                        showSetPinDialog = false
+                                        Toast.makeText(context, "Passcode Lock Enabled!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        setupError = "Passcodes do not match. Restarting."
+                                        newPin = ""
+                                        confirmPin = ""
+                                        pinStep = 1
+                                    }
+                                }
+                            },
+                            enabled = (if (pinStep == 1) newPin else confirmPin).length == 4
+                        ) {
+                            Text(if (pinStep == 1) "Continue" else "Save")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showSetPinDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (showVerifyDisablePinDialog) {
+                var verifyPinVal by remember { mutableStateOf("") }
+                var verifyError by remember { mutableStateOf("") }
+
+                AlertDialog(
+                    onDismissRequest = { showVerifyDisablePinDialog = false },
+                    title = { Text("Disable Passcode", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Enter your current 4-digit passcode to verify:",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            ) {
+                                for (i in 0 until 4) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(androidx.compose.foundation.shape.CircleShape)
+                                            .background(
+                                                if (i < verifyPinVal.length) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, androidx.compose.foundation.shape.CircleShape)
+                                    )
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = verifyPinVal,
+                                onValueChange = { newVal ->
+                                    if (newVal.length <= 4 && newVal.all { it.isDigit() }) {
+                                        verifyPinVal = newVal
+                                        verifyError = ""
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                placeholder = { Text("PIN") },
+                                modifier = Modifier
+                                    .width(150.dp)
+                                    .testTag("settings_verify_pin_field")
+                            )
+
+                            if (verifyError.isNotEmpty()) {
+                                Text(
+                                    text = verifyError,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (com.example.util.SecurityUtils.verifyPin(context, verifyPinVal)) {
+                                    com.example.util.SecurityUtils.disablePasscode(context)
+                                    isPasscodeEnabled = false
+                                    showVerifyDisablePinDialog = false
+                                    Toast.makeText(context, "Passcode Lock Disabled!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    verifyError = "Incorrect passcode."
+                                    verifyPinVal = ""
+                                }
+                            },
+                            enabled = verifyPinVal.length == 4
+                        ) {
+                            Text("Verify & Disable")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showVerifyDisablePinDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
 
             // SECTION 3: BACKUP / EXPORT DATA

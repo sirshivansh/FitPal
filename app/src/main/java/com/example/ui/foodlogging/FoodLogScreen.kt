@@ -42,7 +42,8 @@ fun FoodLogScreen(
     viewModel: FoodLogViewModel,
     mealType: String,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    logDate: String = DateUtils.getTodayDateString()
 ) {
     val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(0) }
@@ -99,8 +100,8 @@ fun FoodLogScreen(
                 }
 
                 when (selectedTab) {
-                    0 -> SearchFoodTab(viewModel, mealType, onFoodLogged = { triggerSuccessAndBack() })
-                    1 -> ManualEntryTab(viewModel, mealType, onFoodLogged = { triggerSuccessAndBack() })
+                    0 -> SearchFoodTab(viewModel, mealType, onFoodLogged = { triggerSuccessAndBack() }, logDate = logDate)
+                    1 -> ManualEntryTab(viewModel, mealType, onFoodLogged = { triggerSuccessAndBack() }, logDate = logDate)
                     2 -> CustomCreatorTab(viewModel, onBack)
                 }
             }
@@ -193,7 +194,8 @@ fun FoodLogScreen(
 fun SearchFoodTab(
     viewModel: FoodLogViewModel,
     mealType: String,
-    onFoodLogged: () -> Unit
+    onFoodLogged: () -> Unit,
+    logDate: String
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val results by viewModel.searchResults.collectAsState()
@@ -431,7 +433,7 @@ fun SearchFoodTab(
                             com.example.util.HapticFeedbackHelper.triggerMealLogged(context, view)
                             val grams = gramsString.toFloatOrNull() ?: 100f
                             viewModel.addFoodToDiary(
-                                date = DateUtils.getTodayDateString(),
+                                date = logDate,
                                 mealType = mealType,
                                 foodName = food.name,
                                 grams = grams,
@@ -464,7 +466,8 @@ fun SearchFoodTab(
 fun ManualEntryTab(
     viewModel: FoodLogViewModel,
     mealType: String,
-    onFoodLogged: () -> Unit
+    onFoodLogged: () -> Unit,
+    logDate: String
 ) {
     val view = androidx.compose.ui.platform.LocalView.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -583,7 +586,7 @@ fun ManualEntryTab(
                 val fat = fatStr.toFloatOrNull() ?: 0f
 
                 viewModel.addManualEntry(
-                    date = DateUtils.getTodayDateString(),
+                    date = logDate,
                     mealType = mealType,
                     foodName = name,
                     calories = calories,

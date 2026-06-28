@@ -50,6 +50,7 @@ fun HabitScreen(
     val habits by viewModel.habits.collectAsState()
     val completions by viewModel.completions.collectAsState()
 
+    val context = LocalContext.current
     var showAddHabitDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -63,10 +64,13 @@ fun HabitScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.resetHabits() },
+                        onClick = {
+                            viewModel.resetHabits()
+                            Toast.makeText(context, "Habit checklist refreshed & synchronized!", Toast.LENGTH_SHORT).show()
+                        },
                         modifier = Modifier.testTag("habit_reset_button")
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Reset Defaults")
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh Checklist")
                     }
                     Button(
                         onClick = { showAddHabitDialog = true },
