@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.util.StepExpenditureResult
 
 @Composable
@@ -32,20 +33,15 @@ fun StepTrackerCard(
     var showEditDialog by remember { mutableStateOf(false) }
     var inputStepText by remember { mutableStateOf(currentSteps.toString()) }
 
-    val electricLime = Color(0xFFCEFD1A)
-    val cardBg = Color(0xFF111317)
-    val elevatedBg = Color(0xFF181B20)
-    val crispWhite = Color(0xFFF0F3F6)
-    val mutedGrey = Color(0xFF717886)
+    val electricLime = MaterialTheme.colorScheme.primary
+    val cardBg = MaterialTheme.colorScheme.surface
+    val elevatedBg = MaterialTheme.colorScheme.surfaceVariant
+    val crispWhite = MaterialTheme.colorScheme.onSurface
+    val mutedGrey = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("step_tracker_card"),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    GlassCard(
+        modifier = modifier.testTag("step_tracker_card"),
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(
             modifier = Modifier
@@ -123,11 +119,7 @@ fun StepTrackerCard(
                 ) {
                     Text(
                         text = "$currentSteps",
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 32.sp
-                        ),
+                        style = MetricNumeralXLarge.copy(fontSize = 32.sp),
                         color = crispWhite
                     )
                     Text(
@@ -152,17 +144,71 @@ fun StepTrackerCard(
                     ) {
                         Text(
                             text = "+${stepResult.estimatedCalories} kcal",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
+                            style = MetricNumeralSmall,
                             color = electricLime
                         )
                         Text(
                             text = "${stepResult.activeStepsAboveBaseline} active steps",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            style = MetricNumeralTiny,
                             color = crispWhite.copy(alpha = 0.8f)
                         )
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Daily Step Goal Progress Bar & Completion State
+            val dailyStepGoal = 10000
+            val stepFraction = if (dailyStepGoal > 0) currentSteps.toFloat() / dailyStepGoal.toFloat() else 0f
+            val isStepGoalReached = currentSteps >= dailyStepGoal
+            val stepPct = (stepFraction * 100).toInt()
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = if (isStepGoalReached) "10,000 Step Goal Reached!" else "${(dailyStepGoal - currentSteps).coerceAtLeast(0)} steps to goal",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = if (isStepGoalReached) electricLime else mutedGrey
+                        )
+                        if (isStepGoalReached) {
+                            GoalCompletionBadge(
+                                text = "GOAL HIT 🏆",
+                                color = electricLime,
+                                isCompleted = true
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "$stepPct%",
+                        style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold),
+                        color = if (isStepGoalReached) electricLime else crispWhite
+                    )
+                }
+
+                // Smooth Motion-Animated Step Bar with Light Shimmer and Goal Breathing Glow
+                MotionProgressBar(
+                    progress = stepFraction,
+                    color = electricLime,
+                    trackColor = elevatedBg,
+                    height = 8.dp,
+                    isGoalCompleted = isStepGoalReached,
+                    completionColor = electricLime,
+                    showShimmer = true,
+                    testTag = "step_motion_progress_bar"
+                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -175,32 +221,32 @@ fun StepTrackerCard(
                 OutlinedButton(
                     onClick = { onSaveSteps(currentSteps + 1000) },
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, Color(0xFF2E462E)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = crispWhite),
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
                 ) {
-                    Text("+1,000", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("+1,000", style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold))
                 }
                 OutlinedButton(
                     onClick = { onSaveSteps(currentSteps + 2500) },
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, Color(0xFF2E462E)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = crispWhite),
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
                 ) {
-                    Text("+2,500", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("+2,500", style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold))
                 }
                 OutlinedButton(
                     onClick = { onSaveSteps(currentSteps + 5000) },
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, Color(0xFF2E462E)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = crispWhite),
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
                 ) {
-                    Text("+5,000", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("+5,000", style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold))
                 }
             }
 

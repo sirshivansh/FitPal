@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +34,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import com.example.fitpal.notification.NotificationHelper
 import com.example.fitpal.ui.components.ConfirmationDialog
+import com.example.fitpal.ui.components.GlassCard
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -84,6 +86,7 @@ fun SettingsScreen(
 
     var showClearConfirm by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
+    var showWeeklyPdfSheet by remember { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
 
     val cloudEmail by profileViewModel.cloudUserEmail.collectAsState()
@@ -140,6 +143,7 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("Settings & Customization", fontWeight = FontWeight.Bold) },
@@ -149,7 +153,8 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
             )
         },
@@ -163,11 +168,91 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // SECTION 0: APPEARANCE & THEME
+            GlassCard(
+                modifier = Modifier.fillMaxWidth().testTag("settings_theme_card"),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val currentIsDark = com.example.fitpal.ui.theme.isDarkThemeGlobal ?: androidx.compose.foundation.isSystemInDarkTheme()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (currentIsDark) Icons.Default.DarkMode else Icons.Default.LightMode,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Theme & Appearance",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Text(
+                        text = "Choose your visual preference. Sports-Tech Dark Mode is optimized for low glare, and Clean Light Mode provides crisp contrast.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val isDark = com.example.fitpal.ui.theme.isDarkThemeGlobal ?: androidx.compose.foundation.isSystemInDarkTheme()
+                        OutlinedButton(
+                            onClick = {
+                                com.example.fitpal.ui.theme.isDarkThemeGlobal = true
+                                context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                    .edit().putBoolean("is_dark_theme", true).apply()
+                            },
+                            modifier = Modifier.weight(1f).testTag("settings_theme_dark_button"),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isDark) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                            ),
+                            border = BorderStroke(
+                                if (isDark) 2.dp else 1.dp,
+                                if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                            )
+                        ) {
+                            Icon(Icons.Default.DarkMode, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Dark Mode", fontWeight = if (isDark) FontWeight.Bold else FontWeight.Normal)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                com.example.fitpal.ui.theme.isDarkThemeGlobal = false
+                                context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                    .edit().putBoolean("is_dark_theme", false).apply()
+                            },
+                            modifier = Modifier.weight(1f).testTag("settings_theme_light_button"),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (!isDark) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                            ),
+                            border = BorderStroke(
+                                if (!isDark) 2.dp else 1.dp,
+                                if (!isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                            )
+                        ) {
+                            Icon(Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Light Mode", fontWeight = if (!isDark) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                }
+            }
+
             // SECTION 1: AUTOMATIC CALORIE TARGET (READ-ONLY)
-            Card(
+            GlassCard(
                 modifier = Modifier.fillMaxWidth().testTag("settings_automatic_calories_card"),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -265,7 +350,10 @@ fun SettingsScreen(
             }
 
             // SECTION 2: MACRONUTRIENT SPLIT (CUSTOM MULTIPLIERS)
-            Card(modifier = Modifier.fillMaxWidth()) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -394,11 +482,9 @@ fun SettingsScreen(
             }
 
             // SECTION 3: CLOUD ACCOUNT & BACKUP SYNCHRONIZATION
-            Card(
+            GlassCard(
                 modifier = Modifier.fillMaxWidth().testTag("settings_cloud_sync_card"),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-                )
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -671,7 +757,10 @@ fun SettingsScreen(
             }
 
             // SECTION: REMINDERS & NOTIFICATIONS
-            Card(modifier = Modifier.fillMaxWidth()) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Reminders & Notifications",
@@ -760,8 +849,9 @@ fun SettingsScreen(
             }
 
             // SECTION: VISUAL STYLE & ACCESSIBILITY (FONT AND SIZES)
-            Card(
-                modifier = Modifier.fillMaxWidth()
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -877,7 +967,10 @@ fun SettingsScreen(
             }
 
             // SECTION 2.5: PRIVACY & SECURITY
-            Card(modifier = Modifier.fillMaxWidth()) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Privacy & Security",
@@ -920,6 +1013,12 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // SECTION: WEEKLY FITNESS & NUTRITION PDF REPORT
+            com.example.fitpal.ui.components.WeeklyReportSummaryCard(
+                onExportPdfClick = { showWeeklyPdfSheet = true },
+                modifier = Modifier.fillMaxWidth().testTag("settings_weekly_report_card")
+            )
 
             if (false) {
                 var isLoggingIn by remember { mutableStateOf(false) }
@@ -1400,7 +1499,10 @@ fun SettingsScreen(
             }
 
             // SECTION 3: BACKUP / EXPORT DATA
-            Card(modifier = Modifier.fillMaxWidth()) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Data Management",
@@ -1793,6 +1895,18 @@ fun SettingsScreen(
                         onBack()
                     },
                     onDismiss = { showClearConfirm = false }
+                )
+            }
+
+            if (showWeeklyPdfSheet) {
+                val app = context.applicationContext as com.example.fitpal.FitPalApplication
+                com.example.fitpal.ui.components.WeeklyPdfExportSheet(
+                    isOpen = showWeeklyPdfSheet,
+                    onDismiss = { showWeeklyPdfSheet = false },
+                    profileRepo = app.profileRepository,
+                    foodRepo = app.foodRepository,
+                    exerciseRepo = app.exerciseRepository,
+                    selectedDate = com.example.fitpal.util.DateUtils.getTodayDateString()
                 )
             }
         }

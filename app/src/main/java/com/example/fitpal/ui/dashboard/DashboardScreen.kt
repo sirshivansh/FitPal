@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitpal.ui.components.*
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.data.local.entity.WorkoutEntry
 import com.example.fitpal.data.local.entity.FoodEntry
 import com.example.fitpal.util.DateUtils
@@ -71,6 +72,7 @@ fun DashboardScreen(
 
     var showAiWorkoutSheet by remember { mutableStateOf(false) }
     var showUnifiedNotebookSheet by remember { mutableStateOf(false) }
+    var showWeeklyPdfSheet by remember { mutableStateOf(false) }
 
     var weightInputText by remember { mutableStateOf("") }
     val loggedWeightForSelectedDate = remember(weightLogs, date) {
@@ -196,9 +198,14 @@ fun DashboardScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             val isDark = com.example.fitpal.ui.theme.isDarkThemeGlobal ?: isSystemInDarkTheme()
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
+                ),
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -229,13 +236,30 @@ fun DashboardScreen(
                     }
                     IconButton(
                         onClick = {
-                            com.example.fitpal.ui.theme.isDarkThemeGlobal = !isDark
+                            val nextTheme = !isDark
+                            com.example.fitpal.ui.theme.isDarkThemeGlobal = nextTheme
+                            context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                .edit().putBoolean("is_dark_theme", nextTheme).apply()
+                            com.example.fitpal.util.HapticFeedbackHelper.triggerLightTap(view)
                         },
                         modifier = Modifier.testTag("dashboard_theme_toggle_button")
                     ) {
                         Icon(
                             imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = "Toggle Theme",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            showWeeklyPdfSheet = true
+                            com.example.fitpal.util.HapticFeedbackHelper.triggerLightTap(view)
+                        },
+                        modifier = Modifier.testTag("dashboard_export_pdf_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PictureAsPdf,
+                            contentDescription = "Export Weekly PDF Report",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -255,10 +279,7 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.primary)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                }
             )
         },
         floatingActionButton = {
@@ -487,6 +508,15 @@ fun DashboardScreen(
                             consumedCalories = totalFoodCalories
                         )
 
+                        // Calorie Balance Differential (Precision Sports Gauge)
+                        CalorieBalanceDial(
+                            consumedCalories = totalFoodCalories,
+                            estimatedExpenditure = dynamicExpenditure.totalEstimatedExpenditure,
+                            activeBurn = activeBurnedCalories,
+                            goalAdjustment = profile?.calorieAdjustment ?: 0,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
                         // Step Tracker Card
                         StepTrackerCard(
                             currentSteps = activityCalorieLog?.steps ?: 0,
@@ -510,10 +540,10 @@ fun DashboardScreen(
                         if (showWarning) {
                             Card(
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFF241412)
+                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
                                 ),
                                 shape = RoundedCornerShape(20.dp),
-                                border = BorderStroke(1.dp, Color(0xFFAE422A).copy(alpha = 0.5f)),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                                 modifier = Modifier.fillMaxWidth().testTag("warning_banner_bars")
                             ) {
                                 Row(
@@ -523,7 +553,7 @@ fun DashboardScreen(
                                     Icon(
                                         imageVector = Icons.Default.Warning,
                                         contentDescription = null,
-                                        tint = Color(0xFFAE422A),
+                                        tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(28.dp)
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
@@ -531,12 +561,12 @@ fun DashboardScreen(
                                         Text(
                                             text = "Nutritional Warning",
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFF5F5F7)
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             text = "Your daily net calories are below the recommended healthy minimum (${if (profile?.gender == "female") "1200" else "1500"} kcal). Please ensure you eat enough to fuel your metabolism.",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF9CA3AF)
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
@@ -545,11 +575,9 @@ fun DashboardScreen(
 
                         // Prompt to customize TDEE if not set manually
                         if (!isMaintenanceAvailable) {
-                            Card(
+                            GlassCard(
                                 modifier = Modifier.fillMaxWidth().testTag("estimated_tdee_prompt_bars"),
-                                shape = RoundedCornerShape(20.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E251E))
+                                shape = RoundedCornerShape(20.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -561,12 +589,12 @@ fun DashboardScreen(
                                             text = "Using estimated TDEE",
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = Color(0xFFF5F5F7)
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             text = "You are currently tracking against physiological estimates. Set your own custom TDEE for exact custom targets.",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF9CA3AF)
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -587,18 +615,16 @@ fun DashboardScreen(
                     } else {
                         // FALLBACK / DETAILED CIRCULAR RINGS VIEW (Rings Mode)
                         // MACRONUTRIENT TARGETS (Moved to the Top & styled with a share/download button)
-                        Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(32.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(26.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -613,6 +639,19 @@ fun DashboardScreen(
                             
                             val context = androidx.compose.ui.platform.LocalContext.current
                             val isDark = com.example.fitpal.ui.theme.isDarkThemeGlobal ?: isSystemInDarkTheme()
+                            IconButton(
+                                onClick = {
+                                    showWeeklyPdfSheet = true
+                                    com.example.fitpal.util.HapticFeedbackHelper.triggerLightTap(view)
+                                },
+                                modifier = Modifier.testTag("dashboard_export_pdf_macros_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PictureAsPdf,
+                                    contentDescription = "Export Weekly PDF Report",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             IconButton(
                                 onClick = {
                                     com.example.fitpal.util.ShareHelper.shareDailyNutritionImage(
@@ -706,10 +745,10 @@ fun DashboardScreen(
                 if (showWarning) {
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF241412)
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
                         ),
                         shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, Color(0xFFAE422A).copy(alpha = 0.5f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -719,7 +758,7 @@ fun DashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = Color(0xFFAE422A),
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -727,12 +766,12 @@ fun DashboardScreen(
                                 Text(
                                     text = "Nutritional Warning",
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF5F5F7)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Your daily net calories are below the recommended healthy minimum (${if (profile?.gender == "female") "1200" else "1500"} kcal). Please ensure you eat enough to fuel your metabolism.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF9CA3AF)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -740,11 +779,9 @@ fun DashboardScreen(
                 }
 
                 // CALORIE CONCENTRIC PROGRESS RING OR BMR FALLBACK
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(24.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -802,8 +839,7 @@ fun DashboardScreen(
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(
                                             text = "$bmrVal",
-                                            style = MaterialTheme.typography.headlineMedium,
-                                            fontWeight = FontWeight.Bold,
+                                            style = MetricNumeralLarge,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                         Text(
@@ -821,8 +857,7 @@ fun DashboardScreen(
                                 ) {
                                     Text(
                                         text = "Your BMR: $bmrVal kcal",
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = MetricNumeralSmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -867,11 +902,9 @@ fun DashboardScreen(
                     }
 
                 // ADDITIONAL ACTIVITY CALORIES CARD
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(24.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -970,11 +1003,9 @@ fun DashboardScreen(
 
 
                 // WATER TRACKING CARD
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(24.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -992,12 +1023,12 @@ fun DashboardScreen(
                                     text = "Water Intake Tracker",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF5F5F7)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Stay hydrated throughout the day",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF9CA3AF)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
@@ -1008,7 +1039,7 @@ fun DashboardScreen(
                                 Icon(
                                     imageVector = Icons.Default.Refresh,
                                     contentDescription = "Reset Water Log",
-                                    tint = Color(0xFF9CA3AF)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -1053,8 +1084,8 @@ fun DashboardScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(Color(0xFF1E251E))
-                                    .border(1.dp, Color(0xFF20AA1D).copy(alpha = 0.25f), RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
                                     .padding(vertical = 12.dp, horizontal = 24.dp)
                                     .clickable { showCustomWaterDialog = true }
                                     .testTag("water_glass_container")
@@ -1067,14 +1098,13 @@ fun DashboardScreen(
                                 )
                                 Text(
                                     text = "$totalMl / $waterGoalMl ml",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF5F5F7)
+                                    style = MetricNumeralSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Tap to customize goal/intake",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF9CA3AF)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
@@ -1090,16 +1120,51 @@ fun DashboardScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Standard progress line
-                        val progress = (totalMl.toFloat() / waterGoalMl.toFloat()).coerceIn(0f, 1f)
-                        LinearProgressIndicator(
-                            progress = progress,
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.outlineVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(CircleShape)
+                        val isWaterGoalReached = totalMl >= waterGoalMl
+                        val waterProgressFraction = if (waterGoalMl > 0) totalMl.toFloat() / waterGoalMl.toFloat() else 0f
+                        val waterPct = (waterProgressFraction * 100).toInt()
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = if (isWaterGoalReached) "Daily Target Reached!" else "${(waterGoalMl - totalMl).coerceAtLeast(0)} ml to daily goal",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    color = if (isWaterGoalReached) Color(0xFF38BDF8) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (isWaterGoalReached) {
+                                    GoalCompletionBadge(
+                                        text = "HYDRATED 💧",
+                                        color = Color(0xFF38BDF8),
+                                        isCompleted = true
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "$waterPct%",
+                                style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold),
+                                color = if (isWaterGoalReached) Color(0xFF38BDF8) else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Motion-animated Hydration Progress Bar
+                        MotionProgressBar(
+                            progress = waterProgressFraction,
+                            color = Color(0xFF38BDF8),
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            height = 8.dp,
+                            isGoalCompleted = isWaterGoalReached,
+                            completionColor = Color(0xFF38BDF8),
+                            showShimmer = true,
+                            testTag = "water_motion_progress_bar"
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -1137,24 +1202,28 @@ fun DashboardScreen(
                     }
                 }
 
+                // Weekly Fitness & Calorie Summary Report Card
+                WeeklyReportSummaryCard(
+                    onExportPdfClick = { showWeeklyPdfSheet = true },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 } // End of !showBodyProgressMode
 
                 if (showBodyProgressMode) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // DAILY BODY WEIGHT LOG CARD
-                    Card(
-                    modifier = Modifier.fillMaxWidth().testTag("weight_log_card"),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    GlassCard(
+                        modifier = Modifier.fillMaxWidth().testTag("weight_log_card"),
+                        shape = RoundedCornerShape(24.dp)
                     ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1165,12 +1234,12 @@ fun DashboardScreen(
                                     text = "Daily Body Weight",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF5F5F7)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Log weight for date: ${DateUtils.formatDateForDisplay(date)}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF9CA3AF)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Icon(
@@ -1186,8 +1255,8 @@ fun DashboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(Color(0xFF1E251E))
-                                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
                                     .padding(12.dp)
                             ) {
                                 Row(
@@ -1199,12 +1268,11 @@ fun DashboardScreen(
                                         Text(
                                             text = "Logged weight on this day:",
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = Color(0xFF9CA3AF)
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
                                             text = "${loggedWeightForSelectedDate.weightKg} kg",
-                                            style = MaterialTheme.typography.titleLarge,
-                                            fontWeight = FontWeight.Black,
+                                            style = MetricNumeralMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                     }
@@ -1288,11 +1356,9 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // DAILY PROGRESS PHOTOS & TIMELAPSE CARD
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth().testTag("progress_photos_card"),
-                    shape = RoundedCornerShape(32.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(26.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -1794,6 +1860,18 @@ fun DashboardScreen(
             onSaveSteps = { deltaSteps ->
                 viewModel.addSteps(deltaSteps)
             }
+        )
+    }
+
+    if (showWeeklyPdfSheet) {
+        val app = context.applicationContext as com.example.fitpal.FitPalApplication
+        WeeklyPdfExportSheet(
+            isOpen = showWeeklyPdfSheet,
+            onDismiss = { showWeeklyPdfSheet = false },
+            profileRepo = app.profileRepository,
+            foodRepo = app.foodRepository,
+            exerciseRepo = app.exerciseRepository,
+            selectedDate = date
         )
     }
 }

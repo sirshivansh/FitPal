@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.data.local.entity.FoodEntry
 import com.example.fitpal.data.local.entity.WeightLog
 import com.example.fitpal.util.DateUtils
@@ -35,17 +36,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-// Color definitions matching the dark sleek fitness theme
-private val BarProteinColor = Color(0xFF2FD6D6) // Vivid Cyan Protein
-private val BarCarbsColor = Color(0xFFA29362)   // Earthy Gold Carbs
-private val BarFatColor = Color(0xFFAE422A)     // Coral Orange Fat
-private val CoralOrange = Color(0xFFAE422A)    // Functional Accent Coral
-private val ElectricLime = Color(0xFF20AA1D)    // Primary Accent
-private val SurfaceStroke = Color(0x14FFFFFF)   // Color.White.copy(alpha = 0.08f)
-private val CardBackground = Color(0xFF141A14)  // Dark Muted Green-Black
-private val ElevatedSurface = Color(0xFF1E251E) // Layered Elevated Surface
-private val MutedText = Color(0xFF9CA3AF)       // Neutral Muted Grey
-private val CrispText = Color(0xFFF5F5F7)       // High Contrast White
+// Color definitions matching the sports-tech fitness theme
+private val BarProteinColor = Color(0xFF0284C7) // Athletic Cyan-Azure Protein
+private val BarCarbsColor = Color(0xFFF59E0B)   // Solar Amber Carbs
+private val BarFatColor = Color(0xFFF43F5E)     // Vibrant Rose Fat
+private val CoralOrange = Color(0xFFF43F5E)    // Functional Accent Coral
+private val ElectricLime: Color @Composable get() = MaterialTheme.colorScheme.primary
+private val SurfaceStroke: Color @Composable get() = MaterialTheme.colorScheme.outlineVariant
+private val CardBackground: Color @Composable get() = MaterialTheme.colorScheme.surface
+private val ElevatedSurface: Color @Composable get() = MaterialTheme.colorScheme.surfaceVariant
+private val MutedText: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+private val CrispText: Color @Composable get() = MaterialTheme.colorScheme.onSurface
 
 data class MacroDayData(
     val dateStr: String,
@@ -300,20 +301,17 @@ fun WeeklyMacroBarChart(
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
                                 text = "P: ${dayData.protein.roundToInt()}g",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MetricNumeralSmall,
                                 color = BarProteinColor
                             )
                             Text(
                                 text = "C: ${dayData.carbs.roundToInt()}g",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MetricNumeralSmall,
                                 color = BarCarbsColor
                             )
                             Text(
                                 text = "F: ${dayData.fat.roundToInt()}g",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MetricNumeralSmall,
                                 color = BarFatColor
                             )
                         }
@@ -405,8 +403,7 @@ fun WeightLineChart(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "${String.format(Locale.US, "%.1f", latestWeight)}kg",
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = MetricNumeralXLarge.copy(
                             fontSize = 36.sp,
                             letterSpacing = (-0.5).sp
                         ),
@@ -462,6 +459,9 @@ fun WeightLineChart(
                 val yDiff = yMax - yMin
 
                 val primaryColor = ElectricLime
+                val crispColor = CrispText
+                val elevatedColor = ElevatedSurface
+                val guideLineColor = SurfaceStroke
 
                 Box(
                     modifier = Modifier
@@ -575,7 +575,7 @@ fun WeightLineChart(
                             )
                             // Intermediate ring
                             drawCircle(
-                                color = if (isLatest) CrispText else ElevatedSurface,
+                                color = if (isLatest) crispColor else elevatedColor,
                                 radius = if (isLatest) 5.dp.toPx() else 3.5.dp.toPx(),
                                 center = point
                             )
@@ -603,7 +603,7 @@ fun WeightLineChart(
                         ) {
                             Text(
                                 text = "${String.format(Locale.US, "%.1f", ptData.second)} kg",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MetricNumeralTiny,
                                 fontWeight = FontWeight.Bold,
                                 color = ElectricLime
                             )
@@ -663,8 +663,7 @@ fun WeightLineChart(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${String.format(Locale.US, "%.1f", initialW)} kg  →  ${String.format(Locale.US, "%.1f", finalW)} kg",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MetricNumeralSmall,
                                 color = CrispText
                             )
                         }
@@ -677,8 +676,7 @@ fun WeightLineChart(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = if (diffW > 0) "+${String.format(Locale.US, "%.1f", diffW)} kg" else "${String.format(Locale.US, "%.1f", diffW)} kg",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MetricNumeralSmall,
                                 color = if (diffW <= 0) ElectricLime else CoralOrange
                             )
                         }

@@ -17,9 +17,9 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class DashboardViewModel(
-    private val profileRepository: ProfileRepository,
-    private val foodRepository: FoodRepository,
-    private val exerciseRepository: ExerciseRepository
+    val profileRepository: ProfileRepository,
+    val foodRepository: FoodRepository,
+    val exerciseRepository: ExerciseRepository
 ) : ViewModel() {
 
     private val _selectedDate = MutableStateFlow(DateUtils.getTodayDateString())

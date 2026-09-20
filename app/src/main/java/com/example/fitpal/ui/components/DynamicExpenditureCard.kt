@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.util.DynamicExpenditureResult
 
 @Composable
@@ -33,22 +34,17 @@ fun DynamicExpenditureCard(
 ) {
     var showExplanationDialog by remember { mutableStateOf(false) }
 
-    val electricLime = Color(0xFFCEFD1A)
-    val cardBg = Color(0xFF111317)
-    val elevatedBg = Color(0xFF181B20)
-    val crispWhite = Color(0xFFF0F3F6)
-    val mutedGrey = Color(0xFF717886)
-    val warmBrown = Color(0xFF4A3828)
-    val coralBadge = Color(0xFFFF5252)
+    val electricLime = MaterialTheme.colorScheme.primary
+    val cardBg = MaterialTheme.colorScheme.surface
+    val elevatedBg = MaterialTheme.colorScheme.surfaceVariant
+    val crispWhite = MaterialTheme.colorScheme.onSurface
+    val mutedGrey = MaterialTheme.colorScheme.onSurfaceVariant
+    val warmBrown = MaterialTheme.colorScheme.tertiary
+    val coralBadge = MaterialTheme.colorScheme.error
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("dynamic_expenditure_card"),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    GlassCard(
+        modifier = modifier.testTag("dynamic_expenditure_card"),
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(
             modifier = Modifier
@@ -147,7 +143,7 @@ fun DynamicExpenditureCard(
                     value = "+${result.loggedWorkoutCalories}",
                     unit = "kcal",
                     containerColor = if (result.loggedWorkoutCalories > 0)
-                        Color(0xFF2E462E)
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     else elevatedBg,
                     modifier = Modifier.weight(1f)
                 )
@@ -159,7 +155,7 @@ fun DynamicExpenditureCard(
                     value = "+${result.loggedStepCalories}",
                     unit = "kcal",
                     containerColor = if (result.loggedStepCalories > 0)
-                        Color(0xFF2E462E)
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     else elevatedBg,
                     modifier = Modifier
                         .weight(1f)
@@ -172,7 +168,7 @@ fun DynamicExpenditureCard(
             // Total Burn vs Dynamic Calorie Target summary bar
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 4.dp),
-                color = Color.White.copy(alpha = 0.08f)
+                color = MaterialTheme.colorScheme.outlineVariant
             )
 
             Row(
@@ -190,8 +186,7 @@ fun DynamicExpenditureCard(
                     )
                     Text(
                         text = "${result.totalEstimatedExpenditure} kcal",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = MetricNumeralMedium,
                         color = crispWhite
                     )
                 }
@@ -213,8 +208,7 @@ fun DynamicExpenditureCard(
                         )
                         Text(
                             text = "${result.dynamicCalorieTarget} kcal",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
+                            style = MetricNumeralMedium,
                             color = electricLime
                         )
                     }
@@ -328,15 +322,15 @@ private fun ExpenditurePillarItem(
     containerColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val crispWhite = Color(0xFFF5F5F7)
-    val mutedGrey = Color(0xFF9CA3AF)
-    val electricLime = Color(0xFF20AA1D)
+    val crispWhite = MaterialTheme.colorScheme.onSurface
+    val mutedGrey = MaterialTheme.colorScheme.onSurfaceVariant
+    val electricLime = MaterialTheme.colorScheme.primary
 
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         color = containerColor,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -359,8 +353,7 @@ private fun ExpenditurePillarItem(
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MetricNumeralSmall,
                     color = if (value.startsWith("+")) electricLime else crispWhite
                 )
                 Spacer(modifier = Modifier.width(2.dp))
@@ -380,17 +373,17 @@ private fun CalculationBreakdownRow(
     formula: String,
     value: String
 ) {
-    val elevatedBg = Color(0xFF1E251E)
-    val crispWhite = Color(0xFFF5F5F7)
-    val mutedGrey = Color(0xFF9CA3AF)
-    val electricLime = Color(0xFF20AA1D)
+    val elevatedBg = MaterialTheme.colorScheme.surfaceVariant
+    val crispWhite = MaterialTheme.colorScheme.onSurface
+    val mutedGrey = MaterialTheme.colorScheme.onSurfaceVariant
+    val electricLime = MaterialTheme.colorScheme.primary
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(elevatedBg)
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(10.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
             .padding(10.dp)
     ) {
         Row(
@@ -405,8 +398,7 @@ private fun CalculationBreakdownRow(
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
+                style = MetricNumeralSmall.copy(fontSize = 13.sp),
                 color = electricLime
             )
         }

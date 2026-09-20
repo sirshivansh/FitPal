@@ -414,13 +414,13 @@ fun BadgeIcon(
         
         // Inner Badge Icon Graphic using our 5 custom vector drawables
         val drawableRes = when (achievementId) {
-            "streak_3", "streak_7" -> com.example.R.drawable.ic_ach_flame
-            "weight_logs_3" -> com.example.R.drawable.ic_ach_scale
-            "weight_goal_met" -> com.example.R.drawable.ic_ach_trophy
-            "water_8", "calorie_control" -> com.example.R.drawable.ic_ach_apple
-            "macro_master" -> com.example.R.drawable.ic_ach_trophy
-            "exercise_workouts_3", "exercise_warrior_150", "exercise_burner_500" -> com.example.R.drawable.ic_ach_dumbbell
-            else -> com.example.R.drawable.ic_ach_trophy
+            "streak_3", "streak_7" -> com.example.fitpal.R.drawable.ic_ach_flame
+            "weight_logs_3" -> com.example.fitpal.R.drawable.ic_ach_scale
+            "weight_goal_met" -> com.example.fitpal.R.drawable.ic_ach_trophy
+            "water_8", "calorie_control" -> com.example.fitpal.R.drawable.ic_ach_apple
+            "macro_master" -> com.example.fitpal.R.drawable.ic_ach_trophy
+            "exercise_workouts_3", "exercise_warrior_150", "exercise_burner_500" -> com.example.fitpal.R.drawable.ic_ach_dumbbell
+            else -> com.example.fitpal.R.drawable.ic_ach_trophy
         }
         
         Icon(

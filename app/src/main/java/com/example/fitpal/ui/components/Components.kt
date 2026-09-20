@@ -1,6 +1,8 @@
 package com.example.fitpal.ui.components
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material3.*
@@ -25,6 +28,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -37,16 +41,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.util.DateUtils
 
-// Color definitions for macros as specified in core features
-val MacroProteinColor = Color(0xFF2FD6D6) // Vivid Cyan Protein
-val MacroCarbsColor = Color(0xFFE5A93C)   // Amber Gold Carbs
-val MacroFatColor = Color(0xFFFF5252)     // Coral Red Fat
-private val ElectricLime = Color(0xFFCEFD1A) // Precision Acid-Lime
-private val DarkBgTrack = Color(0xFF181B20)  // Carbon Surface Track
-private val CrispWhite = Color(0xFFF0F3F6)   // Crisp High-Contrast Text
-private val MutedGreyText = Color(0xFF717886) // Secondary Label Text
+private val ElectricLime: Color @Composable get() = MaterialTheme.colorScheme.primary
+private val DarkBgTrack: Color @Composable get() = MaterialTheme.colorScheme.surfaceVariant
+private val CrispWhite: Color @Composable get() = MaterialTheme.colorScheme.onSurface
+private val MutedGreyText: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 fun CalorieRing(
@@ -64,7 +65,10 @@ fun CalorieRing(
 
     val animatedProgress by animateFloatAsState(
         targetValue = safeFraction,
-        animationSpec = tween(durationMillis = 800),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "CalorieRingProgress"
     )
 
@@ -165,11 +169,7 @@ fun CalorieRing(
         ) {
             Text(
                 text = if (remaining >= 0) "$remaining" else "${kotlin.math.abs(remaining)}",
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 38.sp
-                ),
+                style = MetricNumeralXLarge,
                 color = if (remaining >= 0) CrispWhite else MacroFatColor
             )
             
@@ -192,24 +192,18 @@ fun CalorieRing(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "$consumed",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        ),
+                        style = MetricNumeralSmall,
                         color = CrispWhite
                     )
                     Text(text = "EATEN", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.8.sp), color = MutedGreyText)
                 }
                 
-                Box(modifier = Modifier.height(22.dp).width(1.dp).background(Color.White.copy(alpha = 0.12f)))
+                Box(modifier = Modifier.height(22.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
                 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "$burned",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        ),
+                        style = MetricNumeralSmall,
                         color = ElectricLime
                     )
                     Text(text = "BURNED", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.8.sp), color = MutedGreyText)
@@ -249,7 +243,7 @@ fun MacroProgressBar(
             )
             Text(
                 text = "${currentGrams.toInt()}g / ${goalGrams}g ($percentage%)",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MetricNumeralTiny,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -257,21 +251,15 @@ fun MacroProgressBar(
         Spacer(modifier = Modifier.height(4.dp))
         
         // Progress Track
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(fraction = animatedProgress)
-                    .clip(CircleShape)
-                    .background(color)
-            )
-        }
+        MotionProgressBar(
+            progress = safeProgress,
+            color = color,
+            trackColor = MaterialTheme.colorScheme.outlineVariant,
+            height = 8.dp,
+            isGoalCompleted = safeProgress >= 1f,
+            completionColor = color,
+            showShimmer = true
+        )
     }
 }
 
@@ -287,9 +275,14 @@ fun MacroCircularIndicator(
     val isExcess = progress > 1f
     val displayPercent = (progress * 100f).toInt()
     
+    val isGoalAchieved = displayPercent >= 100 && !isExcess
+
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 800),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "MacroCircularProgress"
     )
 
@@ -343,12 +336,20 @@ fun MacroCircularIndicator(
                 }
             }
             
-            // Center percentage text
+            // Center percentage text & goal completion icon
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (isGoalAchieved) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Goal Met",
+                        tint = color,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
                 Text(
                     text = "$displayPercent%",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = if (isExcess) Color(0xFFE74C3C) else MaterialTheme.colorScheme.onSurface
+                    style = MetricNumeralSmall,
+                    color = if (isExcess) Color(0xFFE74C3C) else if (isGoalAchieved) color else MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -365,7 +366,7 @@ fun MacroCircularIndicator(
         
         Text(
             text = infoText,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            style = MetricNumeralTiny,
             color = infoColor
         )
     }
@@ -503,7 +504,30 @@ fun HorizontalWeekStrip(
                 label = "CalendarDayScale"
             )
 
-            Card(
+            val isDark = isDarkThemeGlobal ?: androidx.compose.foundation.isSystemInDarkTheme()
+            val daySurfaceBrush = if (isSelected) {
+                Brush.verticalGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.25f else 0.20f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.12f else 0.08f)
+                    )
+                )
+            } else {
+                glassSurfaceBrush()
+            }
+            val dayBorderBrush = if (isSelected) {
+                Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.70f),
+                        MaterialTheme.colorScheme.primary,
+                        Color.White.copy(alpha = 0.35f)
+                    )
+                )
+            } else {
+                glassBorderBrush(gleamAlpha = 0.18f)
+            }
+
+            Box(
                 modifier = Modifier
                     .width(46.dp)
                     .height(68.dp)
@@ -511,19 +535,18 @@ fun HorizontalWeekStrip(
                         scaleX = scale
                         scaleY = scale
                     }
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(daySurfaceBrush)
+                    .border(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        brush = dayBorderBrush,
+                        shape = RoundedCornerShape(22.dp)
+                    )
                     .bounceClick {
                         onDateSelected(dateItem)
                     }
                     .testTag("calendar_day_$dateItem"),
-                shape = RoundedCornerShape(22.dp),
-                border = BorderStroke(
-                    width = if (isSelected) 1.5.dp else 1.dp,
-                    color = if (isSelected) ElectricLime else Color.White.copy(alpha = 0.05f)
-                ),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) Color(0xFF1E251E) else Color(0xFF141A14)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                contentAlignment = Alignment.Center
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -587,12 +610,9 @@ fun CaloricAndMacroProgressBarCard(
         label = "CalorieProgress"
     )
 
-    Card(
+    GlassCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF111317)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(
             modifier = Modifier
@@ -612,8 +632,8 @@ fun CaloricAndMacroProgressBarCard(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = Color(0xFF1E251E),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -688,30 +708,22 @@ fun CaloricAndMacroProgressBarCard(
                     
                     Text(
                         text = "$netCalories / $calorieGoal kcal",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        ),
+                        style = MetricNumeralSmall,
                         color = CrispWhite
                     )
                 }
 
-                // Bar
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(CircleShape)
-                        .background(DarkBgTrack)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(fraction = animatedCalorieProgress)
-                            .clip(CircleShape)
-                            .background(if (isCalorieExcess) MacroFatColor else ElectricLime)
-                    )
-                }
+                // Motion-animated Calorie Progress Bar with dynamic breathing halo and shimmer
+                MotionProgressBar(
+                    progress = safeCalorieProgress,
+                    color = if (isCalorieExcess) MacroFatColor else ElectricLime,
+                    trackColor = DarkBgTrack,
+                    height = 10.dp,
+                    isGoalCompleted = (safeCalorieProgress >= 0.95f && !isCalorieExcess),
+                    completionColor = ElectricLime,
+                    showShimmer = true,
+                    testTag = "calorie_motion_progress_bar"
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -720,14 +732,13 @@ fun CaloricAndMacroProgressBarCard(
                 ) {
                     Text(
                         text = if (remainingCalories >= 0) "$remainingCalories kcal remaining" else "${-remainingCalories} kcal over budget",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MetricNumeralTiny,
                         fontWeight = FontWeight.Medium,
                         color = if (isCalorieExcess) MacroFatColor else MutedGreyText
                     )
                     Text(
                         text = "${(calorieProgressFraction * 100).toInt()}%",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
+                        style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold),
                         color = if (isCalorieExcess) MacroFatColor else ElectricLime
                     )
                 }
@@ -793,12 +804,7 @@ fun MacroProgressRow(
     val safeProgress = progressFraction.coerceIn(0f, 1f)
     val percentage = (progressFraction * 100).toInt()
     val isExcess = progressFraction > 1f
-
-    val animatedProgress by animateFloatAsState(
-        targetValue = safeProgress,
-        animationSpec = tween(durationMillis = 800),
-        label = "${label}Progress"
-    )
+    val isGoalMet = progressFraction >= 1f && !isExcess
 
     Column(
         modifier = Modifier
@@ -826,33 +832,32 @@ fun MacroProgressRow(
                     fontWeight = FontWeight.SemiBold,
                     color = CrispWhite
                 )
+                if (isGoalMet) {
+                    GoalCompletionBadge(
+                        text = "GOAL MET",
+                        color = color,
+                        isCompleted = true
+                    )
+                }
             }
             Text(
                 text = "${consumed.roundToInt()}g of ${goal}g",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                ),
+                style = MetricNumeralSmall,
                 color = MutedGreyText
             )
         }
 
-        // Progress track
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(CircleShape)
-                .background(DarkBgTrack)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(fraction = animatedProgress)
-                    .clip(CircleShape)
-                    .background(if (isExcess) MacroFatColor else color)
-            )
-        }
+        // Motion-animated Progress track with shimmering light beam and breathing halo
+        MotionProgressBar(
+            progress = safeProgress,
+            color = if (isExcess) MacroFatColor else color,
+            trackColor = DarkBgTrack,
+            height = 8.dp,
+            isGoalCompleted = isGoalMet,
+            completionColor = color,
+            showShimmer = true,
+            testTag = "progress_bar_$testTagPrefix"
+        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -862,13 +867,12 @@ fun MacroProgressRow(
             val remaining = goal - consumed.roundToInt()
             Text(
                 text = if (remaining >= 0) "${remaining}g remaining" else "${-remaining}g over limit",
-                style = MaterialTheme.typography.bodySmall,
+                style = MetricNumeralTiny,
                 color = if (isExcess) MacroFatColor else MutedGreyText
             )
             Text(
                 text = "$percentage%",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Bold,
+                style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold),
                 color = if (isExcess) MacroFatColor else color
             )
         }

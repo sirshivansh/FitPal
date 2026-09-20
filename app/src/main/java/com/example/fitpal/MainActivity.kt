@@ -13,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -30,6 +32,7 @@ import com.example.fitpal.ui.profile.ProfileViewModel
 import com.example.fitpal.ui.profile.SettingsScreen
 import com.example.fitpal.ui.components.PinLockScreen
 import com.example.fitpal.ui.components.FitPalFloatingBottomBar
+import com.example.fitpal.ui.components.SpeedDialSheet
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -41,10 +44,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val themePrefs = getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+        if (themePrefs.contains("is_dark_theme")) {
+            com.example.fitpal.ui.theme.isDarkThemeGlobal = themePrefs.getBoolean("is_dark_theme", true)
+        }
+
         setContent {
-            com.example.fitpal.ui.theme.FitPalTheme {
-                val context = LocalContext.current
-                val app = context.applicationContext as FitPalApplication
+            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDark = com.example.fitpal.ui.theme.isDarkThemeGlobal ?: systemDark
+            com.example.fitpal.ui.theme.FitPalTheme(darkTheme = isDark) {
+                com.example.fitpal.ui.components.GlassAtmosphericBackground(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val context = LocalContext.current
+                    val app = context.applicationContext as FitPalApplication
                 
                 val factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -108,6 +122,74 @@ class MainActivity : ComponentActivity() {
                     } else {
                         val navController = rememberNavController()
                         var currentTab by remember { mutableStateOf("dashboard") }
+                        var isSpeedDialOpen by remember { mutableStateOf(false) }
+
+                        // Quick logging handlers for Speed Dial actions
+                        val onLogFoodManual = {
+                            currentTab = "diary"
+                            navController.navigate("diary") {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+
+                        val onLogFoodAi = {
+                            currentTab = "diary"
+                            navController.navigate("diary") {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+
+                        val onLogWater = {
+                            dashboardViewModel.incrementWater()
+                        }
+
+                        val onStartWorkout = {
+                            currentTab = "habits"
+                            navController.navigate("habits") {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+
+                        val onAiWorkoutNotebook = {
+                            currentTab = "dashboard"
+                            navController.navigate("dashboard") {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+
+                        val onRecordWeight: (Float) -> Unit = { weight ->
+                            dashboardViewModel.logWeight(weight)
+                        }
+
+                        val onCheckinHabits = {
+                            currentTab = "habits"
+                            navController.navigate("habits") {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+
+                        // Speed Dial Sheet (Adaptive: Modal Dialog on Tablet, Bottom Sheet on Phone)
+                        SpeedDialSheet(
+                            isOpen = isSpeedDialOpen,
+                            onDismiss = { isSpeedDialOpen = false },
+                            onLogFoodManual = onLogFoodManual,
+                            onLogFoodAi = onLogFoodAi,
+                            onLogWater = onLogWater,
+                            onStartWorkout = onStartWorkout,
+                            onAiWorkoutNotebook = onAiWorkoutNotebook,
+                            onRecordWeight = onRecordWeight,
+                            onCheckinHabits = onCheckinHabits
+                        )
 
                         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                             val isExpanded = maxWidth >= 600.dp
@@ -116,7 +198,7 @@ class MainActivity : ComponentActivity() {
                                 Row(modifier = Modifier.fillMaxSize()) {
                                     NavigationRail(
                                         modifier = Modifier.fillMaxHeight(),
-                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
                                         contentColor = MaterialTheme.colorScheme.onSurface,
                                         header = {
                                             Spacer(modifier = Modifier.height(16.dp))
@@ -167,6 +249,27 @@ class MainActivity : ComponentActivity() {
                                             modifier = Modifier.testTag("nav_diary")
                                         )
                                         NavigationRailItem(
+                                            selected = currentTab == "habits",
+                                            onClick = {
+                                                currentTab = "habits"
+                                                navController.navigate("habits") {
+                                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            },
+                                            icon = { Icon(Icons.Default.FitnessCenter, contentDescription = "Habits") },
+                                            label = { Text("Habits") },
+                                            colors = NavigationRailItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            ),
+                                            modifier = Modifier.testTag("nav_habits")
+                                        )
+                                        NavigationRailItem(
                                             selected = currentTab == "profile",
                                             onClick = {
                                                 currentTab = "profile"
@@ -187,6 +290,18 @@ class MainActivity : ComponentActivity() {
                                             ),
                                             modifier = Modifier.testTag("nav_profile")
                                         )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        FloatingActionButton(
+                                            onClick = { isSpeedDialOpen = true },
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier
+                                                .padding(bottom = 24.dp)
+                                                .size(48.dp)
+                                                .testTag("rail_speed_dial_fab")
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = "Quick Log Actions")
+                                        }
                                     }
 
                                     Box(
@@ -220,7 +335,25 @@ class MainActivity : ComponentActivity() {
                                                     profileRepository = app.profileRepository,
                                                     foodRepository = app.foodRepository,
                                                     exerciseRepository = app.exerciseRepository,
-                                                    onBack = { navController.popBackStack() }
+                                                    onBack = { navController.popBackStack() },
+                                                    onNavigateToDiary = { targetDate ->
+                                                        diaryViewModel.setDate(targetDate)
+                                                        currentTab = "diary"
+                                                        navController.navigate("diary") {
+                                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                            launchSingleTop = true
+                                                            restoreState = true
+                                                        }
+                                                    },
+                                                    onNavigateToWorkouts = { targetDate ->
+                                                        diaryViewModel.setDate(targetDate)
+                                                        currentTab = "diary"
+                                                        navController.navigate("diary") {
+                                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                            launchSingleTop = true
+                                                            restoreState = true
+                                                        }
+                                                    }
                                                 )
                                             }
                                             composable("diary") {
@@ -247,7 +380,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else {
                                 Scaffold(
-                                    containerColor = MaterialTheme.colorScheme.background,
+                                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                                     bottomBar = {
                                         FitPalFloatingBottomBar(
                                             currentTab = currentTab,
@@ -260,22 +393,8 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             },
                                             onCenterActionClick = {
-                                                // Center glowing neon green button navigates to Diary or Habits for quick logging
-                                                if (currentTab != "diary") {
-                                                    currentTab = "diary"
-                                                    navController.navigate("diary") {
-                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
-                                                } else {
-                                                    currentTab = "habits"
-                                                    navController.navigate("habits") {
-                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
-                                                }
+                                                // Center glowing neon green button triggers multi-action speed dial
+                                                isSpeedDialOpen = true
                                             }
                                         )
                                     }
@@ -305,7 +424,25 @@ class MainActivity : ComponentActivity() {
                                                 profileRepository = app.profileRepository,
                                                 foodRepository = app.foodRepository,
                                                 exerciseRepository = app.exerciseRepository,
-                                                onBack = { navController.popBackStack() }
+                                                onBack = { navController.popBackStack() },
+                                                onNavigateToDiary = { targetDate ->
+                                                    diaryViewModel.setDate(targetDate)
+                                                    currentTab = "diary"
+                                                    navController.navigate("diary") {
+                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                },
+                                                onNavigateToWorkouts = { targetDate ->
+                                                    diaryViewModel.setDate(targetDate)
+                                                    currentTab = "diary"
+                                                    navController.navigate("diary") {
+                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                }
                                             )
                                         }
                                         composable("diary") {
@@ -336,4 +473,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 }

@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.fitpal.R
 import com.example.util.SecurityUtils
 import org.junit.Assert.*
 import org.junit.Test
@@ -17,7 +18,7 @@ class ExampleRobolectricTest {
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("My Application", appName)
+    assertEquals("FitPal", appName)
   }
 
   @Test

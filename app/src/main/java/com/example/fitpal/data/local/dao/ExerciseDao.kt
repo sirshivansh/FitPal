@@ -9,6 +9,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise_entries WHERE date = :date")
     fun getExerciseEntries(date: String): Flow<List<ExerciseEntry>>
 
+    @Query("SELECT * FROM exercise_entries WHERE date = :date")
+    suspend fun getExerciseEntriesSync(date: String): List<ExerciseEntry>
+
     @Query("SELECT * FROM exercise_entries")
     suspend fun getAllExercisesSync(): List<ExerciseEntry>
 

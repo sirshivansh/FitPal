@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.data.local.entity.WorkoutEntry
 import kotlin.math.roundToInt
 
@@ -29,21 +30,16 @@ fun WorkoutHistoryCard(
     onDeleteWorkout: (WorkoutEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val electricLime = Color(0xFFCEFD1A)
-    val cardBg = Color(0xFF111317)
-    val elevatedBg = Color(0xFF181B20)
-    val crispWhite = Color(0xFFF0F3F6)
-    val mutedGrey = Color(0xFF717886)
-    val earthyBronze = Color(0xFFE5A93C)
+    val electricLime = MaterialTheme.colorScheme.primary
+    val cardBg = MaterialTheme.colorScheme.surface
+    val elevatedBg = MaterialTheme.colorScheme.surfaceVariant
+    val crispWhite = MaterialTheme.colorScheme.onSurface
+    val mutedGrey = MaterialTheme.colorScheme.onSurfaceVariant
+    val earthyBronze = MaterialTheme.colorScheme.secondary
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("workout_history_card"),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    GlassCard(
+        modifier = modifier.testTag("workout_history_card"),
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(
             modifier = Modifier
@@ -163,11 +159,11 @@ fun WorkoutItemView(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val elevatedBg = Color(0xFF1E251E)
-    val crispWhite = Color(0xFFF5F5F7)
-    val mutedGrey = Color(0xFF9CA3AF)
-    val electricLime = Color(0xFF20AA1D)
-    val coralBadge = Color(0xFFAE422A)
+    val elevatedBg = MaterialTheme.colorScheme.surfaceVariant
+    val crispWhite = MaterialTheme.colorScheme.onSurface
+    val mutedGrey = MaterialTheme.colorScheme.onSurfaceVariant
+    val electricLime = MaterialTheme.colorScheme.primary
+    val coralBadge = MaterialTheme.colorScheme.error
 
     Surface(
         modifier = modifier
@@ -175,7 +171,7 @@ fun WorkoutItemView(
             .testTag("workout_item_${workout.id}"),
         shape = RoundedCornerShape(16.dp),
         color = elevatedBg,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier
@@ -198,8 +194,8 @@ fun WorkoutItemView(
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(50),
-                            color = Color(0xFF2E462E),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Text(
                                 text = workout.workoutType,
@@ -218,7 +214,7 @@ fun WorkoutItemView(
                     ) {
                         Text(
                             text = "${workout.durationMinutes} min",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MetricNumeralTiny,
                             color = mutedGrey
                         )
                         Text(
@@ -239,7 +235,7 @@ fun WorkoutItemView(
                             )
                             Text(
                                 text = "${workout.distanceKm} km",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MetricNumeralTiny,
                                 color = mutedGrey
                             )
                         }
@@ -250,15 +246,14 @@ fun WorkoutItemView(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = "${workout.estimatedCalories} kcal",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
+                            style = MetricNumeralSmall,
                             color = electricLime
                         )
                         Surface(
                             shape = RoundedCornerShape(4.dp),
                             color = if (workout.confidence == "High")
                                 electricLime.copy(alpha = 0.15f)
-                            else Color(0xFF2E462E)
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                         ) {
                             Text(
                                 text = "${workout.confidence} Conf",

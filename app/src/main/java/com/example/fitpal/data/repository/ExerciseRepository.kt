@@ -13,6 +13,7 @@ class ExerciseRepository(
 ) {
     // Legacy ExerciseEntry support
     fun getExerciseEntries(date: String): Flow<List<ExerciseEntry>> = exerciseDao.getExerciseEntries(date)
+    suspend fun getExerciseEntriesSync(date: String): List<ExerciseEntry> = exerciseDao.getExerciseEntriesSync(date)
     suspend fun insert(exercise: ExerciseEntry) = exerciseDao.insertExercise(exercise)
     suspend fun delete(exercise: ExerciseEntry) = exerciseDao.deleteExercise(exercise)
     suspend fun clearAll() {

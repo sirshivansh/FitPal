@@ -32,6 +32,10 @@ import androidx.compose.ui.unit.sp
 import com.example.fitpal.data.repository.ExerciseRepository
 import com.example.fitpal.data.repository.FoodRepository
 import com.example.fitpal.data.repository.ProfileRepository
+import com.example.fitpal.ui.components.GlassCard
+import com.example.fitpal.ui.components.MotionProgressBar
+import com.example.fitpal.ui.components.GoalCompletionBadge
+import com.example.fitpal.ui.components.MilestoneCelebrationCard
 import com.example.fitpal.util.DateUtils
 import com.example.fitpal.util.HapticFeedbackHelper
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +51,8 @@ fun HabitsScreen(
     foodRepository: FoodRepository,
     exerciseRepository: ExerciseRepository,
     onBack: () -> Unit,
+    onNavigateToDiary: (String) -> Unit = {},
+    onNavigateToWorkouts: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -61,6 +67,8 @@ fun HabitsScreen(
     // Dynamic background grid states (date -> list of completed habits)
     var habitsStateMap by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
+    var showDrillDownSheet by remember { mutableStateOf(false) }
+    var drillDownData by remember { mutableStateOf<HabitDayDrillDownData?>(null) }
 
     // Shared preferences for manual check-offs
     val sharedPrefs = remember { context.getSharedPreferences("fitpal_habits_prefs", Context.MODE_PRIVATE) }
@@ -127,12 +135,68 @@ fun HabitsScreen(
         }
     }
 
+    // Function to load rich drill-down data for a selected date
+    val loadDayDrillDownData: (String) -> Unit = { dateStr ->
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val profile = profileRepository.getUserProfileSync()
+                val foodEntries = foodRepository.getFoodEntriesSync(dateStr)
+                val waterLog = profileRepository.getWaterLogSync(dateStr)
+                val allWeights = profileRepository.getAllWeights().firstOrNull() ?: emptyList()
+                val weightLog = allWeights.firstOrNull { it.date == dateStr }
+                val activity = profileRepository.getActivityLogSync(dateStr)
+                val workouts = exerciseRepository.getWorkoutsForDate(dateStr).firstOrNull() ?: emptyList()
+                val exercises = exerciseRepository.getExerciseEntries(dateStr).firstOrNull() ?: emptyList()
+
+                val totalCals = foodEntries.sumOf { it.caloriesConsumed.toInt() }
+                val totalProtein = foodEntries.sumOf { it.proteinGrams }.toFloat()
+                val targetCals = profile?.customCalorieGoal 
+                    ?: ((profile?.maintenanceCalories ?: 2000) + (profile?.calorieAdjustment ?: 0))
+                val targetProtein = if (profile != null) {
+                    (profile.currentWeightKg * profile.proteinMultiplier).toInt().coerceAtLeast(100)
+                } else 140
+                val waterCount = waterLog?.glassesCount ?: 0
+                val steps = activity?.steps ?: 0
+                val workoutCount = if (workouts.isNotEmpty()) workouts.size else exercises.size
+                val workoutMins = if (workouts.isNotEmpty()) workouts.sumOf { it.durationMinutes } else exercises.sumOf { it.durationMinutes.toInt() }
+                val activeBurn = (activity?.additionalCalories ?: 0) + (if (workouts.isNotEmpty()) workouts.sumOf { it.estimatedCalories } else exercises.sumOf { it.caloriesBurned.toInt() })
+                val weightVal = weightLog?.weightKg ?: profile?.currentWeightKg
+
+                val completed = habitsStateMap[dateStr] ?: emptyList()
+                val allFive = listOf("Log Food", "Hydration", "Log Weight", "Active Step Goal", "Consistent Routine")
+                val missed = allFive.filter { it !in completed }
+
+                val result = HabitDayDrillDownData(
+                    dateStr = dateStr,
+                    caloriesConsumed = totalCals,
+                    calorieTarget = targetCals,
+                    proteinConsumed = totalProtein,
+                    proteinTarget = targetProtein,
+                    waterGlasses = waterCount,
+                    stepsCount = steps,
+                    workoutCount = workoutCount,
+                    workoutDurationMinutes = workoutMins,
+                    activeCalories = activeBurn,
+                    weightKg = weightVal,
+                    completedHabits = completed,
+                    missedHabits = missed
+                )
+
+                withContext(Dispatchers.Main) {
+                    drillDownData = result
+                    showDrillDownSheet = true
+                }
+            }
+        }
+    }
+
     // Trigger initial load
     LaunchedEffect(Unit) {
         reloadData()
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("Habit Tracker Grid", fontWeight = FontWeight.Black) },
@@ -145,7 +209,8 @@ fun HabitsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
             )
         },
@@ -165,9 +230,8 @@ fun HabitsScreen(
             val totalCompleted = habitsStateMap.values.sumOf { it.size }
             val completionPercentage = if (totalPossible > 0) (totalCompleted.toFloat() / totalPossible * 100).toInt() else 0
 
-            Card(
+            GlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Row(
@@ -192,16 +256,39 @@ fun HabitsScreen(
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Consistency Engine",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Consistency Engine",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            if (completionPercentage >= 80) {
+                                GoalCompletionBadge(
+                                    text = "TOP STREAK 🔥",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    isCompleted = true
+                                )
+                            }
+                        }
                         Text(
                             text = "You completed $totalCompleted habit items in the last 30 days. Real-time updates based on diary logging!",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        MotionProgressBar(
+                            progress = completionPercentage / 100f,
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            height = 6.dp,
+                            isGoalCompleted = completionPercentage >= 80,
+                            completionColor = MaterialTheme.colorScheme.primary,
+                            showShimmer = true,
+                            testTag = "habits_engine_motion_progress_bar"
                         )
                     }
                 }
@@ -236,11 +323,9 @@ fun HabitsScreen(
                 }
             } else {
                 // CONTRIBUTION GRID (GitHub-style calendar grid)
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         LazyVerticalGrid(
@@ -277,6 +362,7 @@ fun HabitsScreen(
                                         .clickable {
                                             selectedDate = dateStr
                                             HapticFeedbackHelper.triggerLightTap(view)
+                                            loadDayDrillDownData(dateStr)
                                         }
                                         .testTag("habit_day_$dateStr"),
                                     contentAlignment = Alignment.Center
@@ -338,19 +424,62 @@ fun HabitsScreen(
             // DETAILS SECTION FOR SELECTED DATE
             val selectedDateDisplay = DateUtils.formatDateForDisplay(selectedDate)
             val selectedCompletedList = habitsStateMap[selectedDate] ?: emptyList()
+            val isAllHabitsDone = selectedCompletedList.size == 5
 
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Habits on $selectedDateDisplay",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Habits on $selectedDateDisplay",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black
+                        )
+                        if (isAllHabitsDone) {
+                            GoalCompletionBadge(
+                                text = "5/5 COMPLETE 🌟",
+                                color = MaterialTheme.colorScheme.primary,
+                                isCompleted = true
+                            )
+                        }
+                    }
+                    Badge(containerColor = if (isAllHabitsDone) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer) {
+                        Text(
+                            "${selectedCompletedList.size} / 5 Done",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isAllHabitsDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(4.dp)
+                        )
+                    }
+                }
+
+                MotionProgressBar(
+                    progress = selectedCompletedList.size.toFloat() / 5f,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    height = 8.dp,
+                    isGoalCompleted = isAllHabitsDone,
+                    completionColor = MaterialTheme.colorScheme.primary,
+                    showShimmer = true,
+                    testTag = "habits_daily_motion_progress_bar"
                 )
-                Badge(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
-                    Text("${selectedCompletedList.size} / 5 Done", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(4.dp))
+
+                if (isAllHabitsDone) {
+                    MilestoneCelebrationCard(
+                        title = "Perfect Habit Day!",
+                        subtitle = "You crushed all 5 daily healthy habits on $selectedDateDisplay. Keep this momentum!",
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
 
@@ -362,13 +491,9 @@ fun HabitsScreen(
                 habitList.forEach { (habitName, habitDesc) ->
                     val isDone = selectedCompletedList.contains(habitName)
 
-                    Card(
+                    GlassCard(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isDone) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                        ),
-                        border = BorderStroke(1.dp, if (isDone) MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant)
+                        shape = RoundedCornerShape(18.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -430,6 +555,22 @@ fun HabitsScreen(
                     }
                 }
             }
+        }
+
+        // 30-Day Habit Grid Drill-down Sheet (Adaptive Modal/BottomSheet)
+        if (showDrillDownSheet && drillDownData != null) {
+            HabitDaySummarySheet(
+                data = drillDownData,
+                onDismiss = { showDrillDownSheet = false },
+                onNavigateToDiary = { targetDate ->
+                    showDrillDownSheet = false
+                    onNavigateToDiary(targetDate)
+                },
+                onNavigateToWorkouts = { targetDate ->
+                    showDrillDownSheet = false
+                    onNavigateToWorkouts(targetDate)
+                }
+            )
         }
     }
 }

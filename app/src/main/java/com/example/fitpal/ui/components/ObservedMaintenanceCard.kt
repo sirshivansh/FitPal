@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.util.ObservedMaintenanceResult
 
 @Composable
@@ -27,21 +28,16 @@ fun ObservedMaintenanceCard(
     result: ObservedMaintenanceResult,
     modifier: Modifier = Modifier
 ) {
-    val electricLime = Color(0xFFCEFD1A)
-    val cardBg = Color(0xFF111317)
-    val elevatedBg = Color(0xFF181B20)
-    val crispWhite = Color(0xFFF0F3F6)
-    val mutedGrey = Color(0xFF717886)
-    val bronzeAccent = Color(0xFFE5A93C)
+    val electricLime = MaterialTheme.colorScheme.primary
+    val cardBg = MaterialTheme.colorScheme.surface
+    val elevatedBg = MaterialTheme.colorScheme.surfaceVariant
+    val crispWhite = MaterialTheme.colorScheme.onSurface
+    val mutedGrey = MaterialTheme.colorScheme.onSurfaceVariant
+    val bronzeAccent = MaterialTheme.colorScheme.secondary
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("observed_maintenance_card"),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    GlassCard(
+        modifier = modifier.testTag("observed_maintenance_card"),
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(
             modifier = Modifier
@@ -60,7 +56,7 @@ fun ObservedMaintenanceCard(
                     Surface(
                         shape = CircleShape,
                         color = elevatedBg,
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.size(40.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -92,10 +88,10 @@ fun ObservedMaintenanceCard(
 
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = if (result.isReady) electricLime.copy(alpha = 0.15f) else Color(0xFF2E462E),
+                    color = if (result.isReady) electricLime.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(
                         1.dp,
-                        if (result.isReady) electricLime.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.08f)
+                        if (result.isReady) electricLime.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant
                     )
                 ) {
                     Text(
@@ -144,10 +140,7 @@ fun ObservedMaintenanceCard(
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 text = "${result.observedMaintenanceKcal}",
-                                style = MaterialTheme.typography.displaySmall.copy(
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 28.sp
-                                ),
+                                style = MetricNumeralLarge.copy(fontSize = 28.sp),
                                 color = electricLime
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -163,13 +156,13 @@ fun ObservedMaintenanceCard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = "Avg Intake: ${result.averageDailyIntakeKcal} kcal",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MetricNumeralTiny,
                             fontWeight = FontWeight.SemiBold,
                             color = crispWhite
                         )
                         Text(
                             text = "Rate: ${if (result.weeklyChangeRateKg > 0) "+" else ""}${result.weeklyChangeRateKg} kg/wk",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MetricNumeralTiny,
                             color = mutedGrey
                         )
                     }

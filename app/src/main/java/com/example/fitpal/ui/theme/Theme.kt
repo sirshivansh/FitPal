@@ -1,7 +1,9 @@
 package com.example.fitpal.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,36 +15,57 @@ var globalFontFamilyName: String by mutableStateOf("SansSerif")
 var globalFontSizeScale: Float by mutableStateOf(1.0f)
 
 val DarkSleekColorScheme = darkColorScheme(
-    primary = VividElectricLime,                  // Electric Lime CTAs, selected tabs, progress curves
-    onPrimary = Color(0xFF041804),                // High contrast on lime
-    primaryContainer = DarkForestContainer,       // Layered olive/forest container
-    onPrimaryContainer = VividElectricLime,
-    secondary = MutedForestOlive,                 // Muted Forest Olive
-    onSecondary = CrispWhite,
-    secondaryContainer = DarkElevatedSurface,     // Layered surface
-    onSecondaryContainer = CrispWhite,
-    tertiary = CoralOrange,                       // Coral Orange for badge indicators & burn
-    onTertiary = CrispWhite,
-    background = DarkOledCharcoal,                // Deep OLED Charcoal (0xFF0C0F0C)
-    surface = DarkMutedGreenBlack,                // Dark Muted Green-Black (0xFF141A14)
-    surfaceVariant = DarkElevatedSurface,         // Layered Elevated Surface (0xFF1E251E)
-    onBackground = CrispWhite,                    // High-contrast crisp white (0xFFF5F5F7)
-    onSurface = CrispWhite,                       // High-contrast crisp white
-    onSurfaceVariant = MutedGrey,                 // Neutral muted grey (0xFF9CA3AF)
-    outline = MutedForestOlive,                   // Chip borders & dividers
-    outlineVariant = DarkSurfaceStroke            // Subtle 1dp border: Color.White.copy(alpha = 0.08f)
+    primary = DarkPrimaryAccent,                  // Vibrant Electric Mint
+    onPrimary = Color(0xFF041804),                // High contrast on mint
+    primaryContainer = DarkPrimaryContainer,       // Layered athletic container
+    onPrimaryContainer = DarkOnPrimaryContainer,
+    secondary = DarkSecondaryAccent,             // Electric Azure
+    onSecondary = Color.White,
+    secondaryContainer = DarkCardSurfaceVariant, // Layered surface
+    onSecondaryContainer = DarkTextPrimary,
+    tertiary = DarkTertiaryFlame,                 // Athletic Flame Coral
+    onTertiary = Color.White,
+    background = DarkCanvasBg,                    // Deep graphite canvas (0xFF0A0D14)
+    surface = DarkCardSurface,                    // Primary Surface & Card Background (0xFF131822)
+    surfaceVariant = DarkCardSurfaceVariant,     // Micro-container Surface (0xFF1A2130)
+    onBackground = DarkTextPrimary,               // High-contrast crisp text (0xFFF1F5F9)
+    onSurface = DarkTextPrimary,                  // High-contrast crisp text
+    onSurfaceVariant = DarkTextSecondary,         // Neutral muted text (0xFF94A3B8)
+    outline = DarkBorderStroke,                   // Mechanical borders (0xFF263248)
+    outlineVariant = DarkSubtleBorder             // Subtle 10% white stroke
+)
+
+val LightSleekColorScheme = lightColorScheme(
+    primary = LightPrimaryAccent,                // Rich Athletic Emerald
+    onPrimary = Color.White,
+    primaryContainer = LightPrimaryContainer,     // Soft mint container
+    onPrimaryContainer = LightOnPrimaryContainer,
+    secondary = LightSecondaryAccent,            // Ocean Azure
+    onSecondary = Color.White,
+    secondaryContainer = LightCardSurfaceVariant,// Slate-100 container
+    onSecondaryContainer = LightTextPrimary,
+    tertiary = LightTertiaryFlame,                // Vivid Sports Orange
+    onTertiary = Color.White,
+    background = LightCanvasBg,                   // Pristine Slate-50 background (0xFFF8FAFC)
+    surface = LightCardSurface,                   // Pure White Cards (0xFFFFFFFF)
+    surfaceVariant = LightCardSurfaceVariant,    // Elevated subtle container (0xFFF1F5F9)
+    onBackground = LightTextPrimary,              // Midnight Slate-900 high contrast (0xFF0F172A)
+    onSurface = LightTextPrimary,                 // Midnight Slate-900 high contrast
+    onSurfaceVariant = LightTextSecondary,        // Slate-500 secondary text (0xFF64748B)
+    outline = LightBorderStroke,                  // Slate-200 border (0xFFE2E8F0)
+    outlineVariant = LightSubtleBorder            // Fine divider
 )
 
 @Composable
 fun FitPalTheme(
-    darkTheme: Boolean = true, // Defaulting to the dark, sleek, high-contrast design
+    darkTheme: Boolean = isDarkThemeGlobal ?: isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
+    val colorScheme = if (darkTheme) DarkSleekColorScheme else LightSleekColorScheme
     MaterialTheme(
-        colorScheme = DarkSleekColorScheme,
+        colorScheme = colorScheme,
         typography = FitPalTypography,
         shapes = FitPalShapes,
         content = content
     )
 }
-

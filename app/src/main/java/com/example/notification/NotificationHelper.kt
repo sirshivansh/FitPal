@@ -10,7 +10,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.MainActivity
-import com.example.R
+import com.example.fitpal.R
 import java.util.Calendar
 
 object NotificationHelper {

@@ -33,6 +33,10 @@ import com.example.fitpal.ui.components.EmptyState
 import com.example.fitpal.ui.components.AiWorkoutNotebookSheet
 import com.example.fitpal.ui.components.UnifiedAiNotebookSheet
 import com.example.fitpal.ui.components.DynamicExpenditureCard
+import com.example.fitpal.ui.components.GlassCard
+import com.example.fitpal.ui.components.MotionProgressBar
+import com.example.fitpal.ui.components.GoalCompletionBadge
+import com.example.fitpal.ui.theme.*
 import com.example.fitpal.util.Calculations
 import com.example.fitpal.util.DateUtils
 import com.example.fitpal.util.ShareHelper
@@ -109,6 +113,7 @@ fun DiaryScreen(
     var foodEntryToDelete by remember { mutableStateOf<FoodEntry?>(null) }
     var exerciseEntryToDelete by remember { mutableStateOf<ExerciseEntry?>(null) }
     var workoutToDelete by remember { mutableStateOf<WorkoutEntry?>(null) }
+    var showWeeklyPdfSheet by remember { mutableStateOf(false) }
 
     var showAddFoodDialogForMeal by remember { mutableStateOf<String?>(null) }
     var showAddExerciseDialog by remember { mutableStateOf(false) }
@@ -130,6 +135,7 @@ fun DiaryScreen(
     val snacks = foodEntries.filter { it.mealType.lowercase() == "snacks" }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("Fitness Diary", fontWeight = FontWeight.Black) },
@@ -191,6 +197,20 @@ fun DiaryScreen(
 
                         IconButton(
                             onClick = {
+                                showWeeklyPdfSheet = true
+                                com.example.fitpal.util.HapticFeedbackHelper.triggerLightTap(view)
+                            },
+                            modifier = Modifier.testTag("diary_export_weekly_pdf_top")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PictureAsPdf,
+                                contentDescription = "Export Weekly PDF Report",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
                                 com.example.fitpal.util.HapticFeedbackHelper.triggerConfirm(view)
                                 ShareHelper.shareWhatIAteToday(
                                     context = context,
@@ -213,7 +233,8 @@ fun DiaryScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
             )
         },
@@ -282,15 +303,11 @@ fun DiaryScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // NET SUMMARY CARD
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                shape = RoundedCornerShape(24.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(
@@ -324,38 +341,54 @@ fun DiaryScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Premium linear budget indicator
-                    val progress = if (totalFoodCalories > 0) {
-                        (totalFoodCalories.toFloat() / adjustedCalorieGoal.toFloat()).coerceIn(0f, 1f)
+                    // Premium linear budget indicator with subtle motion and completion state
+                    val progressFraction = if (adjustedCalorieGoal > 0) {
+                        totalFoodCalories.toFloat() / adjustedCalorieGoal.toFloat()
                     } else 0f
+                    val isBudgetMet = progressFraction in 0.90f..1.05f
+                    val isOverBudget = progressFraction > 1.05f
 
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            color = Color(0xFF20AA1D),
-                            trackColor = Color(0xFF1E251E),
-                        )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Daily Budget: $adjustedCalorieGoal kcal",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF9CA3AF)
-                            )
-                            val pct = (progress * 100).roundToInt()
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Daily Budget: $adjustedCalorieGoal kcal",
+                                    style = MetricNumeralTiny,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (isBudgetMet) {
+                                    GoalCompletionBadge(
+                                        text = "ON TARGET 🎯",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        isCompleted = true
+                                    )
+                                }
+                            }
+                            val pct = (progressFraction * 100).roundToInt()
                             Text(
                                 text = "$pct% Eaten",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF20AA1D)
+                                style = MetricNumeralTiny.copy(fontWeight = FontWeight.Bold),
+                                color = if (isOverBudget) MacroFatColor else MaterialTheme.colorScheme.primary
                             )
                         }
+
+                        MotionProgressBar(
+                            progress = progressFraction,
+                            color = if (isOverBudget) MacroFatColor else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            height = 8.dp,
+                            isGoalCompleted = isBudgetMet,
+                            completionColor = MaterialTheme.colorScheme.primary,
+                            showShimmer = true,
+                            testTag = "diary_budget_motion_progress_bar"
+                        )
                     }
                 }
             }
@@ -372,16 +405,12 @@ fun DiaryScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // SHARE WHAT I ATE TODAY CARD
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .testTag("share_what_i_ate_card"),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF161B16)
-                ),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, Color(0xFF20AA1D).copy(alpha = 0.35f))
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -1428,6 +1457,18 @@ fun DiaryScreen(
             }
         )
     }
+
+    if (showWeeklyPdfSheet) {
+        val app = context.applicationContext as com.example.fitpal.FitPalApplication
+        com.example.fitpal.ui.components.WeeklyPdfExportSheet(
+            isOpen = showWeeklyPdfSheet,
+            onDismiss = { showWeeklyPdfSheet = false },
+            profileRepo = app.profileRepository,
+            foodRepo = app.foodRepository,
+            exerciseRepo = app.exerciseRepository,
+            selectedDate = date
+        )
+    }
 }
 
 @Composable
@@ -1460,13 +1501,9 @@ fun MealSectionView(
         else -> Color(0xFF5B4034)
     }
 
-    Card(
+    GlassCard(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header
@@ -1541,13 +1578,13 @@ fun MealSectionView(
                             .fillMaxWidth()
                             .padding(bottom = 10.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF1E251E))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
-                        Text("Protein: ${totalProtein}g", style = MaterialTheme.typography.labelSmall, color = com.example.fitpal.ui.components.MacroProteinColor, fontWeight = FontWeight.Bold)
-                        Text("Carbs: ${totalCarbs}g", style = MaterialTheme.typography.labelSmall, color = com.example.fitpal.ui.components.MacroCarbsColor, fontWeight = FontWeight.Bold)
-                        Text("Fats: ${totalFat}g", style = MaterialTheme.typography.labelSmall, color = com.example.fitpal.ui.components.MacroFatColor, fontWeight = FontWeight.Bold)
+                        Text("Protein: ${totalProtein}g", style = MetricNumeralTiny, color = MacroProteinColor, fontWeight = FontWeight.Bold)
+                        Text("Carbs: ${totalCarbs}g", style = MetricNumeralTiny, color = MacroCarbsColor, fontWeight = FontWeight.Bold)
+                        Text("Fats: ${totalFat}g", style = MetricNumeralTiny, color = MacroFatColor, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -1557,8 +1594,8 @@ fun MealSectionView(
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1E251E))
-                            .border(0.5.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                             .padding(10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -1568,7 +1605,7 @@ fun MealSectionView(
                                 text = entry.foodName,
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFFF5F5F7),
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -1581,39 +1618,39 @@ fun MealSectionView(
                             ) {
                                 Text(
                                     text = "${entry.gramsConsumed.toInt()}g",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF9CA3AF),
+                                    style = MetricNumeralTiny,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier
-                                        .background(Color(0xFF2E462E).copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
                                         .padding(horizontal = 4.dp, vertical = 2.dp)
                                 )
-                                Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(Color(0xFF9CA3AF)))
+                                Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
                                 Text(
                                     text = "P: ${entry.proteinGrams.toInt()}g",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = com.example.fitpal.ui.components.MacroProteinColor,
+                                    style = MetricNumeralTiny,
+                                    color = MacroProteinColor,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
-                                        .border(width = 0.5.dp, color = com.example.fitpal.ui.components.MacroProteinColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
+                                        .border(width = 0.5.dp, color = MacroProteinColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
                                         .padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
                                 Text(
                                     text = "C: ${entry.carbsGrams.toInt()}g",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = com.example.fitpal.ui.components.MacroCarbsColor,
+                                    style = MetricNumeralTiny,
+                                    color = MacroCarbsColor,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
-                                        .border(width = 0.5.dp, color = com.example.fitpal.ui.components.MacroCarbsColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
+                                        .border(width = 0.5.dp, color = MacroCarbsColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
                                         .padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
                                 Text(
                                     text = "F: ${entry.fatGrams.toInt()}g",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = com.example.fitpal.ui.components.MacroFatColor,
+                                    style = MetricNumeralTiny,
+                                    color = MacroFatColor,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
-                                        .border(width = 0.5.dp, color = com.example.fitpal.ui.components.MacroFatColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
+                                        .border(width = 0.5.dp, color = MacroFatColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp))
                                         .padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
                             }
@@ -1622,9 +1659,8 @@ fun MealSectionView(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "${entry.caloriesConsumed.toInt()} kcal",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF20AA1D)
+                                style = MetricNumeralSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             val view = androidx.compose.ui.platform.LocalView.current
@@ -1673,11 +1709,9 @@ fun ExerciseSectionView(
     val totalBurn = entries.sumOf { it.caloriesBurned.toDouble() }.toInt() +
             workouts.sumOf { it.estimatedCalories.toDouble() }.toInt()
 
-    Card(
+    GlassCard(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -1744,8 +1778,8 @@ fun ExerciseSectionView(
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1E251E))
-                            .border(0.5.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                             .padding(10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -1756,18 +1790,18 @@ fun ExerciseSectionView(
                                     text = workout.title,
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFFF5F5F7)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Surface(
-                                    color = Color(0xFF2E462E),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
                                         text = workout.workoutType.uppercase(),
                                         style = MaterialTheme.typography.labelSmall,
                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                        color = Color(0xFF20AA1D),
+                                        color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -1775,14 +1809,14 @@ fun ExerciseSectionView(
                             Text(
                                 text = "${workout.durationMinutes} mins  •  ${workout.intensity.replaceFirstChar { it.uppercase() }} intensity",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF9CA3AF)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             val exercises = workout.getExercises()
                             if (exercises.isNotEmpty()) {
                                 Text(
                                     text = exercises.joinToString(", ") { "${it.name}${if (it.sets != null && it.reps != null) " (${it.sets}x${it.reps})" else ""}" },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF9CA3AF),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -1792,9 +1826,8 @@ fun ExerciseSectionView(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "-${workout.estimatedCalories} kcal",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF20AA1D)
+                                style = MetricNumeralSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             val view = androidx.compose.ui.platform.LocalView.current
@@ -1808,7 +1841,7 @@ fun ExerciseSectionView(
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete workout",
-                                    tint = Color(0xFFAE422A).copy(alpha = 0.8f),
+                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -1823,8 +1856,8 @@ fun ExerciseSectionView(
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1E251E))
-                            .border(0.5.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                             .padding(10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -1834,7 +1867,7 @@ fun ExerciseSectionView(
                                 text = entry.exerciseName,
                                 fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFFF5F5F7)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "${entry.durationMinutes} mins  |  ${entry.intensity}",
@@ -1846,9 +1879,8 @@ fun ExerciseSectionView(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "-${entry.caloriesBurned.toInt()} kcal",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF20AA1D)
+                                style = MetricNumeralSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             val view = androidx.compose.ui.platform.LocalView.current

@@ -52,4 +52,24 @@ object DateUtils {
         val today = LocalDate.now()
         return (0..29).map { today.minusDays(it.toLong()).format(formatter) }.reversed()
     }
+
+    fun getLast7Days(endDateStr: String = getTodayDateString()): List<String> {
+        val end = LocalDate.parse(endDateStr, formatter)
+        return (0..6).map { end.minusDays(it.toLong()).format(formatter) }.reversed()
+    }
+
+    fun getDayOfWeekShort(dateStr: String): String {
+        val date = LocalDate.parse(dateStr, formatter)
+        return date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.US)
+    }
+
+    fun formatRangeForDisplay(startDateStr: String, endDateStr: String): String {
+        val start = LocalDate.parse(startDateStr, formatter)
+        val end = LocalDate.parse(endDateStr, formatter)
+        return if (start.year == end.year) {
+            "${start.format(DateTimeFormatter.ofPattern("MMM d", Locale.US))} - ${end.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))}"
+        } else {
+            "${start.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))} - ${end.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))}"
+        }
+    }
 }

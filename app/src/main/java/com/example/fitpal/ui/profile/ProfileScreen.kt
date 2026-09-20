@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitpal.data.local.entity.UserProfile
+import com.example.fitpal.ui.components.GlassCard
 import com.example.fitpal.util.Calculations
 import com.example.fitpal.util.HapticFeedbackHelper
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -55,6 +56,7 @@ fun ProfileScreen(
 
     var showGoogleSignInDialog by remember { mutableStateOf(false) }
     var customGoogleEmail by remember { mutableStateOf("") }
+    var showWeeklyPdfSheet by remember { mutableStateOf(false) }
 
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -498,12 +500,12 @@ fun ProfileScreen(
     if (isNewProfile) {
         // STEP-BY-STEP WIZARD (ONBOARDING MODE)
         Scaffold(
+            containerColor = Color.Transparent,
             modifier = modifier.fillMaxSize()
         ) { innerPadding ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(bgGradient)
                     .padding(innerPadding)
             ) {
                 Column(
@@ -553,13 +555,11 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // 2. Middle Section - Interactive Step Content
-                    Card(
+                    GlassCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        shape = RoundedCornerShape(24.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -1399,11 +1399,28 @@ fun ProfileScreen(
     } else {
         // UNIFIED PROFILE EDITOR (EDITING MODE)
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = { Text("Edit Profile", fontWeight = FontWeight.Black) },
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                showWeeklyPdfSheet = true
+                                HapticFeedbackHelper.triggerLightTap(view)
+                            },
+                            modifier = Modifier.testTag("profile_export_pdf_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PictureAsPdf,
+                                contentDescription = "Export Weekly PDF Report",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent,
                         titleContentColor = Color(0xFFF5F5F7)
                     )
                 )
@@ -1505,10 +1522,10 @@ fun ProfileScreen(
                             Button(
                                 onClick = { gender = option },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF1E251E),
-                                    contentColor = if (isSelected) Color(0xFF0C0F0C) else Color(0xFFF5F5F7)
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                                 ),
-                                border = if (!isSelected) BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)) else null,
+                                border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
                                 modifier = Modifier
                                     .weight(1f)
                                     .testTag("gender_${option.lowercase()}")
@@ -1526,11 +1543,9 @@ fun ProfileScreen(
                 val editBmr = Calculations.calculateBmr(editWeight, editHeight, editAge, gender)
                 val editTdee = Calculations.calculateBaseTDEE(editBmr, activityLevel).roundToInt()
 
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth().testTag("profile_maintenance_display_edit"),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                    shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -1596,11 +1611,11 @@ fun ProfileScreen(
                                     .testTag("edit_activity_${level.lowercase()}"),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected) Color(0xFF1E251E) else MaterialTheme.colorScheme.surface
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
                                 ),
                                 border = BorderStroke(
                                     width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f)
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                                 )
                             ) {
                                 Row(
@@ -1829,6 +1844,14 @@ fun ProfileScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // SECTION: WEEKLY FITNESS & NUTRITION PDF REPORT
+                com.example.fitpal.ui.components.WeeklyReportSummaryCard(
+                    onExportPdfClick = { showWeeklyPdfSheet = true },
+                    modifier = Modifier.fillMaxWidth().testTag("profile_weekly_report_card")
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // SAVE BUTTON
@@ -1872,5 +1895,17 @@ fun ProfileScreen(
                 }
             }
         }
+    }
+
+    if (showWeeklyPdfSheet) {
+        val app = context.applicationContext as com.example.fitpal.FitPalApplication
+        com.example.fitpal.ui.components.WeeklyPdfExportSheet(
+            isOpen = showWeeklyPdfSheet,
+            onDismiss = { showWeeklyPdfSheet = false },
+            profileRepo = app.profileRepository,
+            foodRepo = app.foodRepository,
+            exerciseRepo = app.exerciseRepository,
+            selectedDate = com.example.fitpal.util.DateUtils.getTodayDateString()
+        )
     }
 }

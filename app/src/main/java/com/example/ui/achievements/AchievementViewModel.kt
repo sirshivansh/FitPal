@@ -32,11 +32,11 @@ class AchievementViewModel(
         calculateAchievements(profile, foodEntries, exerciseEntries, weightLogs, waterLogs)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Lazily,
         initialValue = emptyList()
     )
 
-    private fun calculateAchievements(
+    fun calculateAchievements(
         profile: com.example.data.local.entity.UserProfile?,
         foodEntries: List<FoodEntry>,
         exerciseEntries: List<ExerciseEntry>,
