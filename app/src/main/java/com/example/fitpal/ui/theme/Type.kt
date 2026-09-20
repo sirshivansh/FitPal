@@ -73,110 +73,126 @@ val MetricNumeralTiny = TextStyle(
     color = Color.Unspecified
 )
 
-val FitPalTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 40.sp,
-        letterSpacing = (-1.0).sp,
-        color = Color.Unspecified
-    ),
-    displayMedium = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        letterSpacing = (-0.8).sp,
-        color = Color.Unspecified
-    ),
-    displaySmall = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        letterSpacing = (-0.5).sp,
-        color = Color.Unspecified
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 26.sp,
-        letterSpacing = (-0.5).sp,
-        color = Color.Unspecified
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        letterSpacing = (-0.3).sp,
-        color = Color.Unspecified
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 19.sp,
-        letterSpacing = (-0.2).sp,
-        color = Color.Unspecified
-    ),
-    titleLarge = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        letterSpacing = (-0.2).sp,
-        color = Color.Unspecified
-    ),
-    titleMedium = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        letterSpacing = 0.sp,
-        color = Color.Unspecified
-    ),
-    titleSmall = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 13.sp,
-        letterSpacing = 0.sp,
-        color = Color.Unspecified
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        letterSpacing = 0.15.sp,
-        color = Color.Unspecified
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        letterSpacing = 0.2.sp,
-        color = Color.Unspecified
-    ),
-    bodySmall = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        letterSpacing = 0.3.sp,
-        color = Color.Unspecified
-    ),
-    labelLarge = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        letterSpacing = 0.1.sp,
-        color = Color.Unspecified
-    ),
-    labelMedium = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        letterSpacing = 1.0.sp,
-        color = Color.Unspecified
-    ),
-    labelSmall = TextStyle(
-        fontFamily = ModernFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 10.sp,
-        letterSpacing = 1.2.sp,
-        color = Color.Unspecified
+fun createFitPalTypography(
+    fontFamilyName: String = "SansSerif",
+    scale: Float = 1.0f
+): Typography {
+    val family = when (fontFamilyName) {
+        "Serif" -> FontFamily.Serif
+        "Monospace" -> FontFamily.Monospace
+        "Cursive" -> FontFamily.Cursive
+        else -> ModernFontFamily
+    }
+
+    fun scaleSp(sp: Float): androidx.compose.ui.unit.TextUnit = (sp * scale).sp
+
+    return Typography(
+        displayLarge = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontSize = scaleSp(40f),
+            letterSpacing = (-1.0).sp,
+            color = Color.Unspecified
+        ),
+        displayMedium = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontSize = scaleSp(32f),
+            letterSpacing = (-0.8).sp,
+            color = Color.Unspecified
+        ),
+        displaySmall = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontSize = scaleSp(28f),
+            letterSpacing = (-0.5).sp,
+            color = Color.Unspecified
+        ),
+        headlineLarge = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontSize = scaleSp(26f),
+            letterSpacing = (-0.5).sp,
+            color = Color.Unspecified
+        ),
+        headlineMedium = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontSize = scaleSp(22f),
+            letterSpacing = (-0.3).sp,
+            color = Color.Unspecified
+        ),
+        headlineSmall = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontSize = scaleSp(19f),
+            letterSpacing = (-0.2).sp,
+            color = Color.Unspecified
+        ),
+        titleLarge = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontSize = scaleSp(18f),
+            letterSpacing = (-0.2).sp,
+            color = Color.Unspecified
+        ),
+        titleMedium = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = scaleSp(15f),
+            letterSpacing = 0.sp,
+            color = Color.Unspecified
+        ),
+        titleSmall = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = scaleSp(13f),
+            letterSpacing = 0.sp,
+            color = Color.Unspecified
+        ),
+        bodyLarge = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Normal,
+            fontSize = scaleSp(15f),
+            letterSpacing = 0.15.sp,
+            color = Color.Unspecified
+        ),
+        bodyMedium = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Normal,
+            fontSize = scaleSp(13f),
+            letterSpacing = 0.2.sp,
+            color = Color.Unspecified
+        ),
+        bodySmall = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Normal,
+            fontSize = scaleSp(12f),
+            letterSpacing = 0.3.sp,
+            color = Color.Unspecified
+        ),
+        labelLarge = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = scaleSp(14f),
+            letterSpacing = 0.1.sp,
+            color = Color.Unspecified
+        ),
+        labelMedium = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Medium,
+            fontSize = scaleSp(11f),
+            letterSpacing = 1.0.sp,
+            color = Color.Unspecified
+        ),
+        labelSmall = TextStyle(
+            fontFamily = family,
+            fontWeight = FontWeight.Medium,
+            fontSize = scaleSp(10f),
+            letterSpacing = 1.2.sp,
+            color = Color.Unspecified
+        )
     )
-)
+}
+
+val FitPalTypography = createFitPalTypography("SansSerif", 1.0f)

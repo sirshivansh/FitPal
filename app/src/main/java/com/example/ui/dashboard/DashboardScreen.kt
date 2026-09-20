@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -800,8 +801,10 @@ fun DashboardScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             val examples = listOf(
                                 "Walking" to 150,
@@ -815,7 +818,7 @@ fun DashboardScreen(
                                         viewModel.setAdditionalActivityCalories(kcal)
                                         com.example.util.HapticFeedbackHelper.triggerConfirm(view)
                                     },
-                                    label = { Text("$name (+$kcal)") },
+                                    label = { Text("$name (+$kcal)", maxLines = 1) },
                                     modifier = Modifier.testTag("activity_suggest_$name")
                                 )
                             }

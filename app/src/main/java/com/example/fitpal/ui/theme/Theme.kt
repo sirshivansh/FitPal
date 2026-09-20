@@ -59,12 +59,17 @@ val LightSleekColorScheme = lightColorScheme(
 @Composable
 fun FitPalTheme(
     darkTheme: Boolean = isDarkThemeGlobal ?: isSystemInDarkTheme(),
+    fontFamilyName: String = globalFontFamilyName,
+    fontSizeScale: Float = globalFontSizeScale,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkSleekColorScheme else LightSleekColorScheme
+    val dynamicTypography = androidx.compose.runtime.remember(fontFamilyName, fontSizeScale) {
+        createFitPalTypography(fontFamilyName, fontSizeScale)
+    }
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = FitPalTypography,
+        typography = dynamicTypography,
         shapes = FitPalShapes,
         content = content
     )

@@ -49,6 +49,12 @@ class MainActivity : ComponentActivity() {
         if (themePrefs.contains("is_dark_theme")) {
             com.example.fitpal.ui.theme.isDarkThemeGlobal = themePrefs.getBoolean("is_dark_theme", true)
         }
+        if (themePrefs.contains("font_family_name")) {
+            com.example.fitpal.ui.theme.globalFontFamilyName = themePrefs.getString("font_family_name", "SansSerif") ?: "SansSerif"
+        }
+        if (themePrefs.contains("font_size_scale")) {
+            com.example.fitpal.ui.theme.globalFontSizeScale = themePrefs.getFloat("font_size_scale", 1.0f)
+        }
 
         setContent {
             val systemDark = androidx.compose.foundation.isSystemInDarkTheme()

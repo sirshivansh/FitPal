@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -215,8 +216,9 @@ fun DashboardScreen(
                             size = 32.dp
                         )
                         Text(
-                            text = if (showBodyProgressMode) "Body & Progress" else "FitPal Dashboard",
-                            fontWeight = FontWeight.Black
+                            text = if (showBodyProgressMode) "Body & Progress" else "FitPal",
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1
                         )
                     }
                 },
@@ -971,8 +973,10 @@ fun DashboardScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             val examples = listOf(
                                 "Walking" to 150,
@@ -986,7 +990,7 @@ fun DashboardScreen(
                                         viewModel.setAdditionalActivityCalories(kcal)
                                         com.example.fitpal.util.HapticFeedbackHelper.triggerConfirm(view)
                                     },
-                                    label = { Text("$name (+$kcal)") },
+                                    label = { Text("$name (+$kcal)", maxLines = 1) },
                                     modifier = Modifier.testTag("activity_suggest_$name")
                                 )
                             }
@@ -1180,8 +1184,10 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
                         ) {
                             listOf(150, 250, 330, 500).forEach { ml ->
                                 AssistChip(
@@ -1189,13 +1195,13 @@ fun DashboardScreen(
                                         viewModel.logCustomWater(ml)
                                         com.example.fitpal.util.HapticFeedbackHelper.triggerConfirm(view)
                                     },
-                                    label = { Text("+$ml ml") },
+                                    label = { Text("+$ml ml", maxLines = 1) },
                                     modifier = Modifier.testTag("water_quick_chip_$ml")
                                 )
                             }
                             AssistChip(
                                 onClick = { showCustomWaterDialog = true },
-                                label = { Text("Custom ⚙️") },
+                                label = { Text("Custom ⚙️", maxLines = 1) },
                                 modifier = Modifier.testTag("water_quick_chip_custom")
                             )
                         }

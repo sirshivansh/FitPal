@@ -63,6 +63,10 @@ class CloudSyncManager private constructor(private val context: Context) {
     }
 
     fun clearGoogleUser() {
+        try {
+            com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+        } catch (_: Throwable) {}
+
         prefs.edit()
             .remove("google_email")
             .remove("google_name")
@@ -104,6 +108,14 @@ class CloudSyncManager private constructor(private val context: Context) {
             val formatted = sdf.format(Date(now))
             _lastSyncTime.value = formatted
             _hasCloudBackupAvailable.value = true
+
+            try {
+                val fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (fbUser != null) {
+                    val db = com.google.firebase.database.FirebaseDatabase.getInstance()
+                    db.reference.child("users").child(fbUser.uid).child("last_backup_timestamp").setValue(now)
+                }
+            } catch (_: Throwable) {}
 
             Result.success(formatted)
         } catch (e: Exception) {

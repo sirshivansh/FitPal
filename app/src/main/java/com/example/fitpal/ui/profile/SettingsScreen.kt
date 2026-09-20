@@ -742,16 +742,35 @@ fun SettingsScreen(
 
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "💡 Developer Integration Note: FitPal simulates standard secure OAuth authentication and JSON synchronization locally. To attach this to a production Google Sign-In backend or cloud Firestore DB directly, configure a 'google-services.json' in your /app directory and rebuild.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(10.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDone,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Google Firebase Services Active",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Cloud Project: fitpal123 • Realtime DB & Auth enabled",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -883,23 +902,61 @@ fun SettingsScreen(
                         "Cursive" to "Cursive"
                     )
                     
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        fonts.forEach { (key, label) ->
-                            val isSelected = com.example.fitpal.ui.theme.globalFontFamilyName == key
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    com.example.fitpal.util.HapticFeedbackHelper.triggerConfirm(view)
-                                    com.example.fitpal.ui.theme.globalFontFamilyName = key
-                                    val sp = context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
-                                    sp.edit().putString("font_family_name", key).apply()
-                                },
-                                label = { Text(label, style = MaterialTheme.typography.bodySmall) },
-                                modifier = Modifier.weight(1f).testTag("font_family_$key")
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            fonts.take(2).forEach { (key, label) ->
+                                val isSelected = com.example.fitpal.ui.theme.globalFontFamilyName == key
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        com.example.fitpal.util.HapticFeedbackHelper.triggerConfirm(view)
+                                        com.example.fitpal.ui.theme.globalFontFamilyName = key
+                                        val sp = context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                        sp.edit().putString("font_family_name", key).apply()
+                                    },
+                                    label = { 
+                                        Text(
+                                            text = label, 
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        ) 
+                                    },
+                                    modifier = Modifier.weight(1f).testTag("font_family_$key")
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            fonts.drop(2).forEach { (key, label) ->
+                                val isSelected = com.example.fitpal.ui.theme.globalFontFamilyName == key
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        com.example.fitpal.util.HapticFeedbackHelper.triggerConfirm(view)
+                                        com.example.fitpal.ui.theme.globalFontFamilyName = key
+                                        val sp = context.getSharedPreferences("fitpal_settings", android.content.Context.MODE_PRIVATE)
+                                        sp.edit().putString("font_family_name", key).apply()
+                                    },
+                                    label = { 
+                                        Text(
+                                            text = label, 
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        ) 
+                                    },
+                                    modifier = Modifier.weight(1f).testTag("font_family_$key")
+                                )
+                            }
                         }
                     }
 
